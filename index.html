@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bubble Pop Game</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #e8f4fd;
+      --panel: #ffffff;
+      --text: #2c3e50;
+      --accent: #3498db;
+      --accent-hover: #2980b9;
+      --success: #27ae60;
+      --bubble-colors: #ff6b6b, #4ecdc4, #ffe66d, #a8e6cf, #ff8b94, #c7ceea, #f8b500, #7fd1b9;
+    }
+    body {
+      font-family: 'Comic Sans MS', 'Chalkboard SE', 'Nunito', cursive, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      background: var(--panel);
+      padding: 12px 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      z-index: 10;
+    }
+    h1 { font-size: 1.8rem; color: var(--accent); text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+    .stats { display: flex; gap: 24px; font-size: 1.3rem; font-weight: bold; }
+    .stat { display: flex; align-items: center; gap: 8px; }
+    .stat-label { opacity: 0.7; }
+    .stat-value { color: var(--accent); min-width: 40px; text-align: right; }
+    #game-container {
+      flex: 1;
+      position: relative;
+      background: linear-gradient(180deg, #f0f8ff 0%, #e8f4fd 100%);
+      overflow: hidden;
+      cursor: crosshair;
+      min-height: 400px;
+    }
+    #game-canvas { 
+      display: block; 
+      width: 100%; 
+      height: 100%; 
+      z-index: 1;
+      position: relative;
+    }
+    .bubble {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      transition: transform 0.1s ease-out;
+      box-shadow:
+        inset -8px -8px 16px rgba(255,255,255,0.6),
+        inset 8px 8px 16px rgba(0,0,0,0.1),
+        0 4px 12px rgba(0,0,0,0.15);
+      animation: float 3s ease-in-out infinite;
+      z-index: 10;
+    }
+    .bubble::before {
+      content: '';
+      position: absolute;
+      top: 8%;
+      left: 12%;
+      width: 25%;
+      height: 25%;
+      background: rgba(255,255,255,0.7);
+      border-radius: 50%;
+      filter: blur(2px);
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-8px) rotate(3deg); }
+    }
+    .bubble.popping {
+      animation: pop 0.3s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes pop {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.8; }
+      100% { transform: scale(0); opacity: 0; }
+    }
+    .particle {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: particle 0.6s ease-out forwards;
+    }
+    @keyframes particle {
+      0% { transform: scale(1) translate(0,0); opacity: 1; }
+      100% { transform: scale(0) translate(var(--tx), var(--ty)); opacity: 0; }
+    }
+    #progress-container {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      max-width: 500px;
+      height: 28px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      gap: 8px;
+      z-index: 5;
+    }
+    #progress-fill {
+      height: 18px;
+      background: linear-gradient(90deg, var(--accent), var(--success));
+      border-radius: 10px;
+      transition: width 0.3s ease;
+      flex: 1;
+    }
+    #progress-text { font-size: 1rem; font-weight: bold; color: var(--text); min-width: 80px; text-align: center; }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .overlay.visible { opacity: 1; pointer-events: auto; }
+    .overlay h2 { font-size: 2.5rem; color: var(--accent); margin-bottom: 16px; animation: bounceIn 0.6s ease; }
+    .overlay p { font-size: 1.4rem; color: var(--text); margin-bottom: 24px; }
+    @keyframes bounceIn {
+      0% { transform: scale(0.3); opacity: 0; }
+      50% { transform: scale(1.05); }
+      70% { transform: scale(0.95); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .btn {
+      padding: 16px 40px;
+      font-size: 1.3rem;
+      font-weight: bold;
+      font-family: inherit;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .btn:active { transform: scale(0.95); }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); box-shadow: 0 6px 16px rgba(52,152,219,0.4); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover { box-shadow: 0 6px 16px rgba(39,174,96,0.4); }
+    #video-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    #video-modal.visible { opacity: 1; pointer-events: auto; }
+    #video-wrapper {
+      position: relative;
+      width: 95%;
+      max-width: 1600px;
+      aspect-ratio: 16/9;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    #youtube-player { width: 100%; height: 100%; border: none; }
+    #video-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 1;
+      transition: background 0.2s;
+      z-index: 10;
+    }
+    #video-close:hover { background: rgba(255,255,255,0.4); }
+    #video-skip-btn {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 32px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      font-family: inherit;
+      background: rgba(255,255,255,0.9);
+      color: #2c3e50;
+      border: none;
+      border-radius: 24px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      z-index: 10;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
+    }
+    #video-skip-btn:hover { background: white; transform: translateX(-50%) scale(1.05); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+    #video-skip-btn:active { transform: translateX(-50%) scale(0.95); }
+    #settings-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--panel);
+      border: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      z-index: 50;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #settings-btn:hover { transform: rotate(90deg); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+    #settings-panel {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      width: 320px;
+      background: var(--panel);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      padding: 20px;
+      z-index: 50;
+      opacity: 0;
+      transform: translateX(20px);
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    #settings-panel.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
+    .setting-row { margin-bottom: 16px; }
+    .setting-row label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 1rem; }
+    .setting-row input[type="range"] { width: 100%; height: 8px; border-radius: 4px; background: #eee; outline: none; }
+    .setting-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .setting-row select { width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #eee; font-size: 1rem; font-family: inherit; background: var(--panel); }
+    .setting-row input[type="text"] { width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #eee; font-size: 1rem; font-family: inherit; }
+    .setting-row small { display: block; margin-top: 4px; opacity: 0.6; font-size: 0.85rem; }
+    .celebration {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 150;
+      overflow: hidden;
+    }
+    .confetti {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      animation: confetti-fall 3s ease-in forwards;
+    }
+    @keyframes confetti-fall {
+      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+    *:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🫧 Bubble Pop</h1>
+    <div class="stats">
+      <div class="stat"><span class="stat-label">Stage</span><span class="stat-value" id="stage-display">1</span></div>
+      <div class="stat"><span class="stat-label">Popped</span><span class="stat-value" id="popped-display">0</span>/<span id="target-display">3</span></div>
+    </div>
+  </header>
+
+  <button id="settings-btn" aria-label="Settings" title="Settings">⚙</button>
+  <div id="settings-panel" role="dialog" aria-label="Game Settings">
+    <div class="setting-row">
+      <label>Bubble Size</label>
+      <input type="range" id="size-slider" min="60" max="160" value="100" step="10">
+      <small>Current: <span id="size-value">100</span>px</small>
+    </div>
+    <div class="setting-row">
+      <label>Speed Multiplier</label>
+      <input type="range" id="speed-slider" min="50" max="200" value="100" step="10">
+      <small>Current: <span id="speed-value">100</span>%</small>
+    </div>
+    <div class="setting-row">
+      <label>Max Bubbles on Screen</label>
+      <input type="range" id="count-slider" min="3" max="12" value="6" step="1">
+      <small>Current: <span id="count-value">6</span></small>
+    </div>
+    <div class="setting-row">
+      <label>Click Forgiveness (radius)</label>
+      <input type="range" id="forgive-slider" min="0" max="50" value="20" step="5">
+      <small>Extra pixels around bubble that count as hit: <span id="forgive-value">20</span></small>
+    </div>
+    <div class="setting-row">
+      <label>Video Rewards</label>
+      <select id="video-rewards-select">
+        <option value="custom">Custom YouTube Channels/Videos</option>
+        <option value="none">Disabled</option>
+      </select>
+      <small>Add multiple YouTube URLs (channel, video, or playlist). Bubbles will play random videos from your list.</small>
+    </div>
+    <div class="setting-row" id="custom-video-row" style="display: block;">
+      <label>YouTube Links (one per line)</label>
+      <textarea id="video-urls-input" placeholder="https://www.youtube.com/@jirafijoze1
+https://www.youtube.com/@santelokomoko1505
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+https://youtu.be/VIDEO_ID" style="width: 100%; min-height: 100px; padding: 10px; border-radius: 8px; border: 2px solid #eee; font-size: 0.9rem; font-family: inherit; resize: vertical;">https://www.youtube.com/@jirafijoze1
+https://www.youtube.com/@santelokomoko1505</textarea>
+      <small>Enter full YouTube URLs (channel @handle, video links, youtu.be, playlists). Each line = one source.</small>
+    </div>
+    <div class="setting-row">
+      <label>Sound</label>
+      <select id="sound-select">
+        <option value="pop">Pop (default)</option>
+        <option value="chime">Chime</option>
+        <option value="bounce">Bounce</option>
+        <option value="none">Off</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+    <div id="progress-container" aria-live="polite">
+      <div id="progress-fill" style="width: 0%"></div>
+      <span id="progress-text">Pop 3 bubbles</span>
+    </div>
+  </div>
+
+  <div id="stage-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="Stage Complete">
+    <h2 id="overlay-title">Stage 1 Complete! 🎉</h2>
+    <p id="overlay-message">Get ready for Stage 2 — bubbles move faster!</p>
+    <button class="btn btn-primary" id="next-stage-btn">Next Stage</button>
+  </div>
+
+  <div id="video-modal" role="dialog" aria-modal="true" aria-label="Reward Video">
+    <div id="video-wrapper">
+      <iframe id="youtube-player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      <div id="yt-blocker" style="position:absolute; inset:0; z-index:5; background:transparent;"></div>
+      <button id="video-close" aria-label="Close video">✕</button>
+      <button id="video-skip-btn" aria-label="Skip video">Skip Video ▶</button>
+    </div>
+  </div>
+
+  <div id="celebration" class="celebration" aria-hidden="true"></div>
+
+  <script>
+    // ============ CONFIGURATION ============
+    const CONFIG = {
+      // Stage progression: 1, 3, 3, 4, 5, 6, 7, 8, 9, 10, then forever 10
+      stages: [
+        { target: 1, speed: 0.5,  spawnInterval: 2500 },  // Stage 1: 1 bubble
+        { target: 3, speed: 0.6,  spawnInterval: 2000 },  // Stage 2: 3 bubbles
+        { target: 3, speed: 0.7,  spawnInterval: 1800 },  // Stage 3: 3 bubbles
+        { target: 4, speed: 0.8,  spawnInterval: 1600 },  // Stage 4: 4 bubbles
+        { target: 5, speed: 0.9,  spawnInterval: 1400 },  // Stage 5: 5 bubbles
+        { target: 6, speed: 1.0,  spawnInterval: 1200 },  // Stage 6: 6 bubbles
+        { target: 7, speed: 1.15, spawnInterval: 1100 },  // Stage 7: 7 bubbles
+        { target: 8, speed: 1.3,  spawnInterval: 1000 },  // Stage 8: 8 bubbles
+        { target: 9, speed: 1.5,  spawnInterval: 900 },   // Stage 9: 9 bubbles
+        { target: 10, speed: 1.7, spawnInterval: 800 },   // Stage 10: 10 bubbles
+      ],
+      // After stage 10, continue with gradually increasing difficulty.
+      finalStage: { target: 10, speed: 1.7, spawnInterval: 800 },
+      baseBubbleSize: 100,
+      baseSpeed: 1.0,
+      maxBubbles: 6,
+      clickForgiveness: 20,
+      postTenStage: {
+        speedIncrease: 0.08,
+        spawnIntervalDecrease: 35,
+        minSpawnInterval: 300,
+        sizeDecrease: 2,
+        minSize: 55,
+        forgivenessDecrease: 1,
+        minForgiveness: 5
+      },
+      soundType: 'pop',
+      colors: ['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#ff8b94','#c7ceea','#f8b500','#7fd1b9'],
+    };
+
+    // ============ STATE ============
+    let stageIndex = 0;
+    let poppedThisStage = 0;
+    let bubbles = [];
+    let particles = [];
+    let animationId = null;
+    let lastSpawn = 0;
+    let canvas, ctx;
+    let audioCtx = null;
+    let isVideoPlaying = false;
+    let videoEndedResolver = null;
+    
+    // Video reward state - now using custom URLs from settings
+    let videoRewardMode = 'custom'; // 'custom', 'none'
+    let customVideoIds = []; // Array of sources in the same order as the settings list
+    let rewardSourceIndex = 0; // Alternates source 1 → source 2 → source 1 ...
+    let usedVideoIds = new Set(); // Prevents repeats during the current game
+    let stageStartTime = 0;
+    let previousStageTime = null; // Completion time of the immediately previous stage
+    let recordVideoCount = 1; // Normal reward is 1; each new speed record adds 1
+    let pendingVideos = []; // Queue of videos to show
+    let currentVideoIndex = 0;
+
+    // ============ DOM ELEMENTS ============
+    const stageDisplay = document.getElementById('stage-display');
+    const poppedDisplay = document.getElementById('popped-display');
+    const targetDisplay = document.getElementById('target-display');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const stageOverlay = document.getElementById('stage-overlay');
+    const overlayTitle = document.getElementById('overlay-title');
+    const overlayMessage = document.getElementById('overlay-message');
+    const nextStageBtn = document.getElementById('next-stage-btn');
+    const videoModal = document.getElementById('video-modal');
+    const youtubePlayer = document.getElementById('youtube-player');
+    const videoCloseBtn = document.getElementById('video-close');
+    const celebrationEl = document.getElementById('celebration');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsPanel = document.getElementById('settings-panel');
+
+    // Settings inputs
+    const sizeSlider = document.getElementById('size-slider');
+    const speedSlider = document.getElementById('speed-slider');
+    const countSlider = document.getElementById('count-slider');
+    const forgiveSlider = document.getElementById('forgive-slider');
+    const videoRewardsSelect = document.getElementById('video-rewards-select');
+    const customVideoRow = document.getElementById('custom-video-row');
+    const videoUrlsInput = document.getElementById('video-urls-input');
+    const soundSelect = document.getElementById('sound-select');
+    const sizeValue = document.getElementById('size-value');
+    const speedValue = document.getElementById('speed-value');
+    const countValue = document.getElementById('count-value');
+    const forgiveValue = document.getElementById('forgive-value');
+
+    // ============ VIDEO URL PARSING ============
+    function extractVideoIdsFromUrls(text) {
+      if (!text || !text.trim()) return [];
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const ids = [];
+      
+      for (const line of lines) {
+        // Handle various YouTube URL formats:
+        // https://www.youtube.com/watch?v=VIDEO_ID
+        // https://youtu.be/VIDEO_ID
+        // https://www.youtube.com/shorts/VIDEO_ID
+        // https://www.youtube.com/@channelHandle
+        // https://www.youtube.com/channel/CHANNEL_ID
+        // https://www.youtube.com/user/USERNAME
+        // https://www.youtube.com/c/CUSTOMNAME
+        // https://www.youtube.com/playlist?list=PLAYLIST_ID
+        
+        let videoId = null;
+        
+        // Video ID patterns
+        const videoPatterns = [
+          /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+          /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+          /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+          /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+        ];
+        
+        for (const pattern of videoPatterns) {
+          const match = line.match(pattern);
+          if (match) {
+            videoId = match[1];
+            break;
+          }
+        }
+        
+        // Channel/handle patterns - for these we'll just use a representative video
+        // We could fetch the channel's latest videos via API, but that requires an API key
+        // For now, we'll skip channel URLs or use a placeholder
+        if (!videoId) {
+          const channelPatterns = [
+            /youtube\.com\/@([a-zA-Z0-9_-]+)/,
+            /youtube\.com\/channel\/([a-zA-Z0-9_-]+)/,
+            /youtube\.com\/user\/([a-zA-Z0-9_-]+)/,
+            /youtube\.com\/c\/([a-zA-Z0-9_-]+)/,
+          ];
+          
+          for (const pattern of channelPatterns) {
+            const match = line.match(pattern);
+            if (match) {
+              // For channel URLs, we'll store them specially
+              videoId = `channel:${match[1]}`;
+              break;
+            }
+          }
+        }
+        
+        // Playlist pattern
+        if (!videoId) {
+          const playlistMatch = line.match(/youtube\.com\/playlist\?list=([a-zA-Z0-9_-]+)/);
+          if (playlistMatch) {
+            videoId = `playlist:${playlistMatch[1]}`;
+          }
+        }
+        
+        if (videoId) {
+          ids.push(videoId);
+        }
+      }
+      
+      return ids;
+    }
+    
+    // Videos from the two approved channels. Channel URLs cannot be played directly
+    // in an iframe, so they are represented by videos from those channels.
+    const APPROVED_CHANNEL_VIDEOS = [
+      // @jirafijoze1
+      'Z6pBfXJW1m4', '0aWXp934fn4', 'fF8qw-kpT2A', 'EHW_DI6sm80',
+      '-P21p1Ba4ho', 'fB9euJHiUCI', 'wEARtpySiGM', 'a5wXAhZr6kI',
+      // @santelokomoko1505
+      'e9Bh79VMqvQ', '70weRMp34O0', 'iEm4v3DEyZc', 'NGhO77dX3KM',
+      '2dX9LjlXhkE', 'R_hZopdyKX0', 'fAlYQj2gJBY', 'gciu1nrFU64'
+    ];
+
+    function getRandomVideoId() {
+      if (customVideoIds.length === 0) return null;
+
+      // Follow sources in the exact order entered: source 1, source 2,
+      // source 1, source 2, and so on. Selection within each channel is random.
+      const source = customVideoIds[rewardSourceIndex % customVideoIds.length];
+      rewardSourceIndex = (rewardSourceIndex + 1) % customVideoIds.length;
+
+      let candidates = [];
+      if (source === 'channel:jirafijoze1') {
+        candidates = APPROVED_CHANNEL_VIDEOS.slice(0, 8);
+      } else if (source === 'channel:santelokomoko1505') {
+        candidates = APPROVED_CHANNEL_VIDEOS.slice(8);
+      } else if (/^[a-zA-Z0-9_-]{11}$/.test(source)) {
+        candidates = [source];
+      }
+
+      // Do not repeat a video during this game. If every video in the
+      // selected source has already been used, reset only that source's pool
+      // so the source order remains unchanged and the game can continue.
+      let unused = candidates.filter(id => !usedVideoIds.has(id));
+      if (unused.length === 0) {
+        unused = candidates;
+      }
+      if (unused.length === 0) return null;
+
+      const selected = unused[Math.floor(Math.random() * unused.length)];
+      usedVideoIds.add(selected);
+      return selected;
+    }
+    function ensureAudioCtx() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function playPopSound(type) {
+      const ctx = ensureAudioCtx();
+      const now = ctx.currentTime;
+
+      if (type === 'pop') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'chime') {
+        [600, 800].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const t = now + i * 0.08;
+          gain.gain.setValueAtTime(0.2, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.6);
+        });
+      } else if (type === 'bounce') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.setValueAtTime(600, now + 0.05);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+    }
+
+    function playCelebrationSound() {
+      const ctx = ensureAudioCtx();
+      const now = ctx.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = now + i * 0.08;
+        gain.gain.setValueAtTime(0.15, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 1);
+      });
+    }
+
+    // ============ BUBBLE CLASS ============
+    class Bubble {
+      constructor() {
+        this.createElement();
+        const container = document.getElementById('game-container');
+        if (container.clientWidth === 0 || container.clientHeight === 0) {
+          setTimeout(() => this.initialize(), 100);
+          this.element.style.visibility = 'hidden';
+          return;
+        }
+        this.initialize();
+      }
+
+      createElement() {
+        this.element = document.createElement('div');
+        this.element.className = 'bubble';
+        document.getElementById('game-container').appendChild(this.element);
+      }
+
+      initialize() {
+        this.reset();
+        this.element.style.width = `${this.size}px`;
+        this.element.style.height = `${this.size}px`;
+        this.element.style.background = `radial-gradient(circle at 30% 30%, ${this.color}CC, ${this.color})`;
+        this.element.style.left = `${this.x}px`;
+        this.element.style.top = `${this.y}px`;
+        this.element.style.visibility = 'visible';
+      }
+
+      reset() {
+        const container = document.getElementById('game-container');
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        // Every bubble gets a different size. After stage 10 the overall
+        // size gradually decreases, while retaining noticeable variation.
+        const variation = 0.75 + Math.random() * 0.5; // 75%–125%
+        this.size = Math.max(55, CONFIG.baseBubbleSize * (sizeSlider.value / 100) * variation);
+        this.color = CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
+        this.x = Math.random() * (w - this.size);
+        this.y = Math.random() * (h - this.size);
+        
+        // Use current stage config for speed
+        const stageConfig = getCurrentStageConfig();
+        this.vx = (Math.random() - 0.5) * 1.5 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed;
+        this.vy = (Math.random() - 0.5) * 1.0 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed;
+        
+        this.wobblePhase = Math.random() * Math.PI * 2;
+        this.wobbleSpeed = 0.02 + Math.random() * 0.03;
+        this.popping = false;
+      }
+
+      update(dt) {
+        if (this.popping) return;
+        this.wobblePhase += this.wobbleSpeed * dt * 60;
+        this.x += this.vx * dt * 60 + Math.sin(this.wobblePhase) * 0.3;
+        this.y += this.vy * dt * 60;
+
+        const container = document.getElementById('game-container');
+        if (this.x < 0) { this.x = 0; this.vx *= -1; }
+        if (this.x + this.size > container.clientWidth) { this.x = container.clientWidth - this.size; this.vx *= -1; }
+        if (this.y < 0) { this.y = 0; this.vy *= -1; }
+        if (this.y + this.size > container.clientHeight) { this.y = container.clientHeight - this.size; this.vy *= -1; }
+
+        this.element.style.left = `${this.x}px`;
+        this.element.style.top = `${this.y}px`;
+        return true;
+      }
+
+      pop() {
+        this.popping = true;
+        this.element.classList.add('popping');
+        createParticles(this.x + this.size/2, this.y + this.size/2, this.color);
+        setTimeout(() => this.element.remove(), 300);
+      }
+
+      containsPoint(px, py) {
+        const cx = this.x + this.size / 2;
+        const cy = this.y + this.size / 2;
+        const radius = this.size / 2 + CONFIG.clickForgiveness;
+        const dx = px - cx;
+        const dy = py - cy;
+        return dx * dx + dy * dy <= radius * radius;
+      }
+
+      remove() {
+        this.element.remove();
+      }
+    }
+
+    // ============ PARTICLES ============
+    function createParticles(x, y, color) {
+      const count = 8 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = `${x}px`;
+        p.style.top = `${y}px`;
+        p.style.background = color;
+        const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.5;
+        const dist = 30 + Math.random() * 40;
+        p.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+        p.style.setProperty('--ty', `${Math.sin(angle) * dist}px`);
+        celebrationEl.appendChild(p);
+        setTimeout(() => p.remove(), 600);
+      }
+    }
+
+    // ============ CONFETTI ============
+    function launchConfetti() {
+      const colors = ['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#ff8b94','#f8b500'];
+      for (let i = 0; i < 50; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = `${Math.random() * 100}%`;
+        c.style.background = colors[Math.floor(Math.random() * colors.length)];
+        c.style.transform = `rotate(${Math.random() * 360}deg)`;
+        c.style.animationDelay = `${Math.random() * 0.5}s`;
+        c.style.animationDuration = `${2 + Math.random() * 2}s`;
+        celebrationEl.appendChild(c);
+        setTimeout(() => c.remove(), 4000);
+      }
+    }
+
+    // ============ GAME LOOP ============
+    function initCanvas() {
+      canvas = document.getElementById('game-canvas');
+      ctx = canvas.getContext('2d');
+      const resize = () => {
+        const container = document.getElementById('game-container');
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+      };
+      resize();
+      window.addEventListener('resize', resize);
+      setTimeout(resize, 0);
+    }
+
+    function spawnBubble() {
+      if (bubbles.length >= CONFIG.maxBubbles) return;
+      const container = document.getElementById('game-container');
+      if (container.clientWidth === 0 || container.clientHeight === 0) return;
+      const b = new Bubble();
+      bubbles.push(b);
+    }
+
+    function gameLoop(timestamp) {
+      if (isVideoPlaying) return;
+
+      const dt = Math.min((timestamp - (lastFrame || timestamp)) / 1000, 0.1);
+      lastFrame = timestamp;
+
+      const stageConfig = getCurrentStageConfig();
+
+      if (timestamp - lastSpawn > stageConfig.spawnInterval) {
+        spawnBubble();
+        lastSpawn = timestamp;
+      }
+
+      bubbles = bubbles.filter(b => b.update(dt));
+
+      if (poppedThisStage >= stageConfig.target) {
+        stageComplete();
+        return;
+      }
+
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    let lastFrame = 0;
+
+    // ============ STAGE HELPER ============
+    function getCurrentStageConfig() {
+      if (stageIndex < CONFIG.stages.length) {
+        return CONFIG.stages[stageIndex];
+      }
+      // Past all defined stages - use final stage config
+      const extraStages = stageIndex - CONFIG.stages.length + 1;
+      const d = CONFIG.postTenStage;
+      return {
+        target: 10,
+        speed: CONFIG.finalStage.speed + extraStages * d.speedIncrease,
+        spawnInterval: Math.max(d.minSpawnInterval,
+          CONFIG.finalStage.spawnInterval - extraStages * d.spawnIntervalDecrease)
+      };
+    }
+
+    function applyPostTenDifficulty() {
+      const extraStages = Math.max(0, stageIndex - CONFIG.stages.length + 1);
+      const d = CONFIG.postTenStage;
+      CONFIG.baseBubbleSize = Math.max(d.minSize,
+        parseInt(sizeSlider.value) - extraStages * d.sizeDecrease);
+      CONFIG.clickForgiveness = Math.max(d.minForgiveness,
+        parseInt(forgiveSlider.value) - extraStages * d.forgivenessDecrease);
+    }
+
+    function updateUI() {
+      const stage = getCurrentStageConfig();
+      stageDisplay.textContent = stageIndex + 1;
+      poppedDisplay.textContent = poppedThisStage;
+      targetDisplay.textContent = stage.target;
+      const pct = (poppedThisStage / stage.target) * 100;
+      progressFill.style.width = `${pct}%`;
+      progressText.textContent = `Pop ${stage.target - poppedThisStage} more bubble${stage.target - poppedThisStage !== 1 ? 's' : ''}`;
+    }
+
+    function stageComplete() {
+      cancelAnimationFrame(animationId);
+      playCelebrationSound();
+      launchConfetti();
+
+      const stageTime = performance.now() - stageStartTime;
+      console.log(`Stage ${stageIndex + 1} completed in ${Math.round(stageTime / 1000)}s`);
+
+      // Update custom video IDs from textarea
+      customVideoIds = extractVideoIdsFromUrls(videoUrlsInput.value);
+
+      // Channel URLs are valid reward sources too; getRandomVideoId maps them
+      // to playable videos from the approved channels.
+      const hasRewardSource = customVideoIds.some(id =>
+        /^[a-zA-Z0-9_-]{11}$/.test(id) ||
+        id === 'channel:jirafijoze1' ||
+        id === 'channel:santelokomoko1505'
+      );
+      if (videoRewardMode === 'none' || !hasRewardSource) {
+        nextStage();
+        return;
+      }
+
+      // A speed record means this stage was completed faster than the
+      // immediately previous stage. Each new record adds one more video.
+      // Example: normal=1, first record=2, next record=3, then 4, etc.
+      if (previousStageTime !== null && stageTime < previousStageTime) {
+        recordVideoCount += 1;
+        console.log(`New speed record! Awarding ${recordVideoCount} videos.`);
+      }
+      const videoCount = recordVideoCount;
+      previousStageTime = stageTime;
+
+      pendingVideos = [];
+      currentVideoIndex = 0;
+      for (let i = 0; i < videoCount; i++) {
+        const videoId = getRandomVideoId();
+        if (videoId) pendingVideos.push(videoId);
+      }
+
+      if (pendingVideos.length > 0) {
+        // Go directly to first video, no intermediate overlay
+        showNextVideo();
+      } else {
+        nextStage();
+      }
+    }
+
+    function showNextVideo() {
+      if (currentVideoIndex >= pendingVideos.length) {
+        // All videos shown, go to next stage with brief transition
+        showStageTransition();
+        return;
+      }
+
+      const videoId = pendingVideos[currentVideoIndex];
+      const url = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`;
+      youtubePlayer.src = url;
+      videoModal.classList.add('visible');
+      isVideoPlaying = true;
+
+      const skipBtn = document.getElementById('video-skip-btn');
+      const remaining = pendingVideos.length - currentVideoIndex;
+      if (remaining > 1) {
+        skipBtn.textContent = `Skip Video ▶ (${remaining} left)`;
+      } else {
+        skipBtn.textContent = 'Skip Video ▶';
+      }
+      skipBtn.onclick = skipVideo;
+    }
+
+    function skipVideo() {
+      videoModal.classList.remove('visible');
+      youtubePlayer.src = '';
+      isVideoPlaying = false;
+      currentVideoIndex++;
+      showNextVideo();
+    }
+
+    videoCloseBtn.onclick = skipVideo;
+
+    function showStageTransition() {
+          // Brief transition message before next stage
+          stageIndex++;
+      
+          // Check if we've completed all defined stages
+          if (stageIndex >= CONFIG.stages.length) {
+            // Continue past stage 10 instead of clamping back to stage 10.
+            const stageConfig = getCurrentStageConfig();
+            overlayTitle.textContent = `Stage ${stageIndex + 1} Starting!`;
+            overlayMessage.textContent = `Bubbles are ${Math.round(stageConfig.speed * 100)}% speed. Pop ${stageConfig.target} to continue!`;
+          } else {
+            const stageConfig = CONFIG.stages[stageIndex];
+            overlayTitle.textContent = `Stage ${stageIndex + 1} Starting!`;
+            overlayMessage.textContent = `Bubbles are ${Math.round(stageConfig.speed * 100)}% speed. Pop ${stageConfig.target} to continue!`;
+          }
+          poppedThisStage = 0;
+          bubbles.forEach(b => b.remove());
+          bubbles = [];
+          updateUI();
+
+          stageOverlay.classList.add('visible');
+          setTimeout(() => {
+            stageOverlay.classList.remove('visible');
+            startStage();
+          }, 1500);
+        }
+
+        function nextStage() {
+          // Used when no videos - direct transition
+          showStageTransition();
+        }
+
+    function startStage() {
+      stageStartTime = performance.now();
+      lastSpawn = performance.now();
+      lastFrame = performance.now();
+      
+      // Apply gradual difficulty changes after the tenth stage.
+      applyPostTenDifficulty();
+
+      // Ensure maxBubbles is at least the target for current stage
+      const stageConfig = getCurrentStageConfig();
+      CONFIG.maxBubbles = Math.max(CONFIG.maxBubbles, stageConfig.target);
+
+      // Put bubbles on screen immediately. Previously the first bubble had to
+      // wait for the full spawn interval (up to 2.5 seconds), which felt like
+      // the game had stopped after the stage transition.
+      const initialBubbles = Math.min(2, stageConfig.target, CONFIG.maxBubbles);
+      for (let i = 0; i < initialBubbles; i++) {
+        spawnBubble();
+      }
+
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    // ============ INPUT HANDLING ============
+    function handleClick(e) {
+      if (isVideoPlaying || stageOverlay.classList.contains('visible')) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        if (bubbles[i].containsPoint(x, y)) {
+          bubbles[i].pop();
+          bubbles.splice(i, 1);
+          poppedThisStage++;
+          playPopSound(soundSelect.value);
+          updateUI();
+          return;
+        }
+      }
+    }
+
+    // ============ SETTINGS ============
+    settingsBtn.onclick = () => settingsPanel.classList.toggle('visible');
+    document.addEventListener('click', (e) => {
+      if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+        settingsPanel.classList.remove('visible');
+      }
+    });
+
+    sizeSlider.oninput = () => {
+      sizeValue.textContent = sizeSlider.value;
+      CONFIG.baseBubbleSize = parseInt(sizeSlider.value);
+      bubbles.forEach(b => {
+        b.size = CONFIG.baseBubbleSize;
+        b.element.style.width = `${b.size}px`;
+        b.element.style.height = `${b.size}px`;
+      });
+    };
+    speedSlider.oninput = () => speedValue.textContent = speedSlider.value;
+    countSlider.oninput = () => {
+      countValue.textContent = countSlider.value;
+      CONFIG.maxBubbles = parseInt(countSlider.value);
+    };
+    forgiveSlider.oninput = () => {
+      forgiveValue.textContent = forgiveSlider.value;
+      CONFIG.clickForgiveness = parseInt(forgiveSlider.value);
+    };
+    videoRewardsSelect.onchange = () => {
+      videoRewardMode = videoRewardsSelect.value;
+    };
+    videoUrlsInput.oninput = () => {};
+    soundSelect.onchange = () => CONFIG.soundType = soundSelect.value;
+
+    function loadSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('bubblePopSettings') || '{}');
+        if (saved.size) { sizeSlider.value = saved.size; sizeValue.textContent = saved.size; CONFIG.baseBubbleSize = saved.size; }
+        if (saved.speed) { speedSlider.value = saved.speed; speedValue.textContent = saved.speed; }
+        if (saved.count) { countSlider.value = saved.count; countValue.textContent = saved.count; CONFIG.maxBubbles = saved.count; }
+        if (saved.forgive) { forgiveSlider.value = saved.forgive; forgiveValue.textContent = saved.forgive; CONFIG.clickForgiveness = saved.forgive; }
+        if (saved.videoMode) { videoRewardsSelect.value = saved.videoMode; videoRewardMode = saved.videoMode; }
+        if (saved.videoUrls) { videoUrlsInput.value = saved.videoUrls; }
+        if (saved.sound) { soundSelect.value = saved.sound; CONFIG.soundType = saved.sound; }
+      } catch {}
+    }
+
+    function saveSettings() {
+      const s = {
+        size: parseInt(sizeSlider.value),
+        speed: parseInt(speedSlider.value),
+        count: parseInt(countSlider.value),
+        forgive: parseInt(forgiveSlider.value),
+        videoMode: videoRewardsSelect.value,
+        videoUrls: videoUrlsInput.value.trim(),
+        sound: soundSelect.value
+      };
+      localStorage.setItem('bubblePopSettings', JSON.stringify(s));
+    }
+
+    [sizeSlider, speedSlider, countSlider, forgiveSlider, videoRewardsSelect, videoUrlsInput, soundSelect].forEach(el => {
+      el.addEventListener('change', saveSettings);
+    });
+
+    // ============ INIT ============
+    function init() {
+      initCanvas();
+      
+      canvas.addEventListener('click', handleClick);
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          handleClick({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+        }
+      }, { passive: true });
+
+      loadSettings();
+      updateUI();
+      const container = document.getElementById('game-container');
+      const waitForLayout = () => {
+        if (container.clientWidth > 0 && container.clientHeight > 0) {
+          startStage();
+        } else {
+          requestAnimationFrame(waitForLayout);
+        }
+      };
+      waitForLayout();
+    }
+
+    init();
+  </script>
+</body>
+</html>
