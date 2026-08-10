@@ -78,6 +78,16 @@
       border-radius: 50%;
       filter: blur(2px);
     }
+    .animal-bubble {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8em;
+      line-height: 1;
+      text-shadow: 1px 2px 2px rgba(0,0,0,0.2);
+      border: 4px solid rgba(255,255,255,0.85);
+    }
+    .animal-bubble::before { display: none; }
     @keyframes float {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       50% { transform: translateY(-8px) rotate(3deg); }
@@ -415,6 +425,28 @@ https://www.youtube.com/@santelokomoko1505</textarea>
         minForgiveness: 5
       },
       soundType: 'pop',
+      // Maximum animal bubbles in each stage from Stage 10 onward.
+      // This lets animals continue appearing in later stages while keeping
+      // the screen from becoming crowded.
+      maxAnimalBubblesPerStage: 2,
+      animalSpeedMultiplier: 2,
+      animals: [
+        { name: 'cat', emoji: '🐱', color: '#f39c12' },
+        { name: 'dog', emoji: '🐶', color: '#9b7653' },
+        { name: 'lion', emoji: '🦁', color: '#d4a017' },
+        { name: 'monkey', emoji: '🐵', color: '#8b5a2b' },
+        { name: 'frog', emoji: '🐸', color: '#52b788' },
+        { name: 'cow', emoji: '🐮', color: '#f1f1f1' },
+        { name: 'pig', emoji: '🐷', color: '#f4a6b8' },
+        { name: 'duck', emoji: '🦆', color: '#f6bd60' },
+        { name: 'chicken', emoji: '🐔', color: '#fff3b0' },
+        { name: 'sheep', emoji: '🐑', color: '#e9ecef' },
+        { name: 'horse', emoji: '🐴', color: '#a47148' },
+        { name: 'elephant', emoji: '🐘', color: '#9aa0a6' },
+        { name: 'bear', emoji: '🐻', color: '#8d5524' },
+        { name: 'tiger', emoji: '🐯', color: '#f77f00' },
+        { name: 'penguin', emoji: '🐧', color: '#90caf9' }
+      ],
       colors: ['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#ff8b94','#c7ceea','#f8b500','#7fd1b9'],
     };
 
@@ -435,6 +467,8 @@ https://www.youtube.com/@santelokomoko1505</textarea>
     let customVideoIds = []; // Array of sources in the same order as the settings list
     let rewardSourceIndex = 0; // Alternates source 1 → source 2 → source 1 ...
     let usedVideoIds = new Set(); // Prevents repeats during the current game
+    let animalBubblesSpawned = 0;
+    let animalRewardCount = 0;
     let stageStartTime = 0;
     let previousStageTime = null; // Completion time of the immediately previous stage
     let recordVideoCount = 1; // Normal reward is 1; each new speed record adds 1
@@ -585,6 +619,71 @@ https://www.youtube.com/@santelokomoko1505</textarea>
       usedVideoIds.add(selected);
       return selected;
     }
+    let animalVideoPlaying = false;
+
+    function playAnimalSound(animalName) {
+      const ctx = ensureAudioCtx();
+      const now = ctx.currentTime;
+      // Distinct synthetic sound patterns for each animal. These are
+      // intentionally short and gentle rather than realistic loud recordings.
+      const patterns = {
+        cat: [520, 760, 520],
+        dog: [260, 190, 260],
+        lion: [140, 110, 85, 70],
+        monkey: [620, 480, 700, 540],
+        frog: [220, 360, 220],
+        cow: [180, 150, 125],
+        pig: [300, 360, 300, 360],
+        duck: [500, 420, 500],
+        chicken: [720, 640, 760, 680],
+        sheep: [330, 390, 330],
+        horse: [180, 260, 340, 420],
+        elephant: [90, 75, 60],
+        bear: [120, 95, 80],
+        tiger: [170, 130, 100, 80],
+        penguin: [580, 680, 580]
+      };
+      const notes = patterns[animalName] || patterns.cat;
+      notes.forEach((frequency, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const time = now + index * 0.1;
+        osc.type = ['dog', 'lion', 'cow', 'bear', 'tiger', 'elephant'].includes(animalName)
+          ? 'sawtooth'
+          : 'triangle';
+        osc.frequency.setValueAtTime(frequency, time);
+        gain.gain.setValueAtTime(0.22, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(time);
+        osc.stop(time + 0.2);
+      });
+    }
+
+    function queueAnimalRewardVideo() {
+      if (videoRewardMode === 'none') return;
+      customVideoIds = extractVideoIdsFromUrls(videoUrlsInput.value);
+      const videoId = getRandomVideoId();
+      if (!videoId || animalVideoPlaying || isVideoPlaying) return;
+
+      animalVideoPlaying = true;
+      isVideoPlaying = true;
+      youtubePlayer.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`;
+      videoModal.classList.add('visible');
+      const skipBtn = document.getElementById('video-skip-btn');
+      skipBtn.textContent = 'Skip Animal Video ▶';
+      skipBtn.onclick = finishAnimalRewardVideo;
+    }
+
+    function finishAnimalRewardVideo() {
+      videoModal.classList.remove('visible');
+      youtubePlayer.src = '';
+      animalVideoPlaying = false;
+      isVideoPlaying = false;
+      lastFrame = performance.now();
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
     function ensureAudioCtx() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -672,6 +771,11 @@ https://www.youtube.com/@santelokomoko1505</textarea>
 
       initialize() {
         this.reset();
+        if (this.isAnimal) {
+          this.element.classList.add('animal-bubble');
+          this.element.textContent = this.animal.emoji;
+          this.element.setAttribute('aria-label', `${this.animal.name} reward bubble`);
+        }
         this.element.style.width = `${this.size}px`;
         this.element.style.height = `${this.size}px`;
         this.element.style.background = `radial-gradient(circle at 30% 30%, ${this.color}CC, ${this.color})`;
@@ -688,14 +792,22 @@ https://www.youtube.com/@santelokomoko1505</textarea>
         // size gradually decreases, while retaining noticeable variation.
         const variation = 0.75 + Math.random() * 0.5; // 75%–125%
         this.size = Math.max(55, CONFIG.baseBubbleSize * (sizeSlider.value / 100) * variation);
-        this.color = CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
+        // Animal bubbles are available in every stage. The counter resets
+        // when a new stage starts, allowing up to two per stage.
+        this.isAnimal = animalBubblesSpawned < CONFIG.maxAnimalBubblesPerStage && Math.random() < 0.18;
+        this.animal = this.isAnimal
+          ? CONFIG.animals[Math.floor(Math.random() * CONFIG.animals.length)]
+          : null;
+        if (this.isAnimal) animalBubblesSpawned++;
+        this.color = this.isAnimal ? this.animal.color : CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
         this.x = Math.random() * (w - this.size);
         this.y = Math.random() * (h - this.size);
         
         // Use current stage config for speed
         const stageConfig = getCurrentStageConfig();
-        this.vx = (Math.random() - 0.5) * 1.5 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed;
-        this.vy = (Math.random() - 0.5) * 1.0 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed;
+        const animalMultiplier = this.isAnimal ? CONFIG.animalSpeedMultiplier : 1;
+        this.vx = (Math.random() - 0.5) * 1.5 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed * animalMultiplier;
+        this.vy = (Math.random() - 0.5) * 1.0 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed * animalMultiplier;
         
         this.wobblePhase = Math.random() * Math.PI * 2;
         this.wobbleSpeed = 0.02 + Math.random() * 0.03;
@@ -723,6 +835,11 @@ https://www.youtube.com/@santelokomoko1505</textarea>
         this.popping = true;
         this.element.classList.add('popping');
         createParticles(this.x + this.size/2, this.y + this.size/2, this.color);
+        if (this.isAnimal) {
+          playAnimalSound(this.animal.name);
+          animalRewardCount++;
+          queueAnimalRewardVideo();
+        }
         setTimeout(() => this.element.remove(), 300);
       }
 
@@ -970,6 +1087,8 @@ https://www.youtube.com/@santelokomoko1505</textarea>
         }
 
     function startStage() {
+      // Allow up to two animal bubbles again in every new stage.
+      animalBubblesSpawned = 0;
       stageStartTime = performance.now();
       lastSpawn = performance.now();
       lastFrame = performance.now();
@@ -1002,10 +1121,13 @@ https://www.youtube.com/@santelokomoko1505</textarea>
 
       for (let i = bubbles.length - 1; i >= 0; i--) {
         if (bubbles[i].containsPoint(x, y)) {
-          bubbles[i].pop();
+          const poppedBubble = bubbles[i];
+          poppedBubble.pop();
           bubbles.splice(i, 1);
           poppedThisStage++;
-          playPopSound(soundSelect.value);
+          if (!poppedBubble.isAnimal) {
+            playPopSound(soundSelect.value);
+          }
           updateUI();
           return;
         }
