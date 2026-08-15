@@ -769,21 +769,7 @@ https://www.youtube.com/@santelokomoko1505</textarea>
         document.getElementById('game-container').appendChild(this.element);
       }
 
-      initialize() {
-        this.reset();
-        if (this.isAnimal) {
-          this.element.classList.add('animal-bubble');
-          this.element.textContent = this.animal.emoji;
-          this.element.setAttribute('aria-label', `${this.animal.name} reward bubble`);
-        }
-        this.element.style.width = `${this.size}px`;
-        this.element.style.height = `${this.size}px`;
-        this.element.style.background = `radial-gradient(circle at 30% 30%, ${this.color}CC, ${this.color})`;
-        this.element.style.left = `${this.x}px`;
-        this.element.style.top = `${this.y}px`;
-        this.element.style.visibility = 'visible';
-      }
-
+      initialize() {\n        this.reset();\n        if (this.isAnimal) {\n          this.element.classList.add('animal-bubble');\n          this.element.textContent = this.animal.emoji;\n          // Set font-size proportional to bubble size for better fit\n          this.element.style.fontSize = `${this.size * 0.75}px`;\n        }\n        this.element.style.width = `${this.size}px`;\n        this.element.style.height = `${this.size}px`;\n        this.element.style.background = `radial-gradient(circle at 30% 30%, ${this.color}CC, ${this.color})`;\n        this.element.style.left = `${this.x}px`;\n        this.element.style.top = `${this.y}px`;\n        this.element.style.visibility = 'visible';\n      }\n
       reset() {
         const container = document.getElementById('game-container');
         const w = container.clientWidth;
