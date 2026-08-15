@@ -412,18 +412,11 @@ https://www.youtube.com/@santelokomoko1505</textarea>
       // After stage 10, continue with gradually increasing difficulty.
       finalStage: { target: 10, speed: 1.7, spawnInterval: 800 },
       baseBubbleSize: 50,
-      baseSpeed: 0.5,
+      baseSpeed: 1.0,
       maxBubbles: 6,
+      animalSizeMultiplier: 0.5,
       clickForgiveness: 20,
-      postTenStage: {
-        speedIncrease: 0.08,
-        spawnIntervalDecrease: 35,
-        minSpawnInterval: 300,
-        sizeDecrease: 2,
-        minSize: 55,
-        forgivenessDecrease: 1,
-        minForgiveness: 5
-      },
+      
       soundType: 'pop',
       // Maximum animal bubbles in each stage from Stage 10 onward.
       // This lets animals continue appearing in later stages while keeping
@@ -448,6 +441,12 @@ https://www.youtube.com/@santelokomoko1505</textarea>
         { name: 'penguin', emoji: '🐧', color: '#90caf9' }
       ],
       colors: ['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#ff8b94','#c7ceea','#f8b500','#7fd1b9'],
+      difficultyProgression: {
+        sizeDecreasePerStage: 1.0,
+        forgivenessDecreasePerStage: 0.2,
+        minSize: 20,
+        minForgiveness: 5,
+      },
     };
 
     // ============ STATE ============
@@ -777,7 +776,11 @@ https://www.youtube.com/@santelokomoko1505</textarea>
         // Every bubble gets a different size. After stage 10 the overall
         // size gradually decreases, while retaining noticeable variation.
         const variation = 0.75 + Math.random() * 0.5; // 75%–125%
-        this.size = Math.max(55, CONFIG.baseBubbleSize * (sizeSlider.value / 100) * variation);
+        this.size = CONFIG.baseBubbleSize * (sizeSlider.value / 100) * variation;
+        if (this.isAnimal) {
+          this.size *= CONFIG.animalSizeMultiplier;
+        }
+        this.size = Math.max(CONFIG.difficultyProgression.minSize, this.size);
         // Animal bubbles are available in every stage. The counter resets
         // when a new stage starts, allowing up to two per stage.
         this.isAnimal = animalBubblesSpawned < CONFIG.maxAnimalBubblesPerStage && Math.random() < 0.18;
@@ -959,6 +962,21 @@ https://www.youtube.com/@santelokomoko1505</textarea>
       progressText.textContent = `Pop ${stage.target - poppedThisStage} more bubble${stage.target - poppedThisStage !== 1 ? 's' : ''}`;
     }
 
+    // ============ STAGE DIFFICULTY ============
+    function applyStageDifficulty() {
+      const d = CONFIG.difficultyProgression;
+      const sliderSize = parseInt(sizeSlider.value);
+      const sliderForgiveness = parseInt(forgiveSlider.value);
+      
+      // Calculate reduction based on stageIndex (stage 0 = first stage)
+      const sizeReduction = stageIndex * d.sizeDecreasePerStage;
+      const forgivenessReduction = stageIndex * d.forgivenessDecreasePerStage;
+      
+      CONFIG.baseBubbleSize = Math.max(d.minSize, sliderSize - sizeReduction);
+      CONFIG.clickForgiveness = Math.max(d.minForgiveness, sliderForgiveness - forgivenessReduction);
+    }
+
+
     function stageComplete() {
       cancelAnimationFrame(animationId);
       playCelebrationSound();
@@ -1080,7 +1098,7 @@ https://www.youtube.com/@santelokomoko1505</textarea>
       lastFrame = performance.now();
       
       // Apply gradual difficulty changes after the tenth stage.
-      applyPostTenDifficulty();
+      applyStageDifficulty();
 
       // Ensure maxBubbles is at least the target for current stage
       const stageConfig = getCurrentStageConfig();
@@ -1195,6 +1213,7 @@ https://www.youtube.com/@santelokomoko1505</textarea>
 
       loadSettings();
       updateUI();
+      applyStageDifficulty();
       const container = document.getElementById('game-container');
       const waitForLayout = () => {
         if (container.clientWidth > 0 && container.clientHeight > 0) {
