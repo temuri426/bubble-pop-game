@@ -789,8 +789,8 @@ https://www.youtube.com/@santelokomoko1505</textarea>
           : null;
         if (this.isAnimal) animalBubblesSpawned++;
         this.color = this.isAnimal ? this.animal.color : CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
-        this.x = Math.random() * (w - this.size);
-        this.y = Math.random() * (h - this.size);
+                this.x = Math.random() * (w - this.size);
+                this.y = Math.random() * (h - this.size);
         
         // Use current stage config for speed
         const stageConfig = getCurrentStageConfig();
