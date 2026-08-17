@@ -331,15 +331,20 @@
       <small>Current: <span id="speed-value">100</span>%</small>
     </div>
     <div class="setting-row">
-      <label>Max Bubbles on Screen</label>
-      <input type="range" id="count-slider" min="3" max="12" value="6" step="1">
-      <small>Current: <span id="count-value">6</span></small>
-    </div>
-    <div class="setting-row">
-      <label>Click Forgiveness (radius)</label>
-      <input type="range" id="forgive-slider" min="0" max="50" value="20" step="5">
-      <small>Extra pixels around bubble that count as hit: <span id="forgive-value">20</span></small>
-    </div>
+          <label>Max Bubbles on Screen</label>
+          <input type="range" id="count-slider" min="3" max="12" value="6" step="1">
+          <small>Current: <span id="count-value">6</span></small>
+        </div>
+        <div class="setting-row">
+          <label>Click Forgiveness (radius)</label>
+          <input type="range" id="forgive-slider" min="0" max="50" value="20" step="5">
+          <small>Extra pixels around bubble that count as hit: <span id="forgive-value">20</span></small>
+        </div>
+        <div class="setting-row">
+          <label>Animal Speed Multiplier</label>
+          <input type="range" id="animal-speed-slider" min="1" max="10" value="3" step="1">
+          <small>Current: <span id="animal-speed-value">3</span>x</small>
+        </div>
     <div class="setting-row">
       <label>Video Rewards</label>
       <select id="video-rewards-select">
@@ -393,7 +398,10 @@ https://www.youtube.com/@santelokomoko1505</textarea>
 
   <div id="celebration" class="celebration" aria-hidden="true"></div>
 
-  <script>
+    <!-- Animal sound system -->
+    <script src="sounds/animal-sounds.js"></script>
+
+    <script>
     // ============ CONFIGURATION ============
     const CONFIG = {
       // Stage progression: 1, 3, 3, 4, 5, 6, 7, 8, 9, 10, then forever 10
@@ -411,35 +419,43 @@ https://www.youtube.com/@santelokomoko1505</textarea>
       ],
       // After stage 10, continue with gradually increasing difficulty.
       finalStage: { target: 10, speed: 1.7, spawnInterval: 800 },
+      postTenStage: {
+        speedIncrease: 0.1,
+        spawnIntervalDecrease: 100,
+        minSpawnInterval: 200
+      },
       baseBubbleSize: 50,
-      baseSpeed: 1.0,
-      maxBubbles: 6,
-      animalSizeMultiplier: 0.5,
-      clickForgiveness: 20,
-      
-      soundType: 'pop',
-      // Maximum animal bubbles in each stage from Stage 10 onward.
-      // This lets animals continue appearing in later stages while keeping
-      // the screen from becoming crowded.
-      maxAnimalBubblesPerStage: 2,
-      animalSpeedMultiplier: 20,
+            baseSpeed: 1.0,
+            maxBubbles: 6,
+            animalSizeMultiplier: 0.5,
+            clickForgiveness: 20,
+
+            soundType: 'pop',
+            // Maximum animal bubbles in each stage from Stage 10 onward.
+            // This lets animals continue appearing in later stages while keeping
+            // the screen from becoming crowded.
+            maxAnimalBubblesPerStage: 1,
+            animalSpeedMultiplier: 3,
       animals: [
-        { name: 'cat', emoji: '🐱', color: '#f39c12' },
-        { name: 'dog', emoji: '🐶', color: '#9b7653' },
-        { name: 'lion', emoji: '🦁', color: '#d4a017' },
-        { name: 'monkey', emoji: '🐵', color: '#8b5a2b' },
-        { name: 'frog', emoji: '🐸', color: '#52b788' },
-        { name: 'cow', emoji: '🐮', color: '#f1f1f1' },
-        { name: 'pig', emoji: '🐷', color: '#f4a6b8' },
-        { name: 'duck', emoji: '🦆', color: '#f6bd60' },
-        { name: 'chicken', emoji: '🐔', color: '#fff3b0' },
-        { name: 'sheep', emoji: '🐑', color: '#e9ecef' },
-        { name: 'horse', emoji: '🐴', color: '#a47148' },
-        { name: 'elephant', emoji: '🐘', color: '#9aa0a6' },
-        { name: 'bear', emoji: '🐻', color: '#8d5524' },
-        { name: 'tiger', emoji: '🐯', color: '#f77f00' },
-        { name: 'penguin', emoji: '🐧', color: '#90caf9' }
-      ],
+              { name: 'cat', emoji: '🐱', color: '#f39c12' },
+              { name: 'dog', emoji: '🐶', color: '#9b7653' },
+              { name: 'lion', emoji: '🦁', color: '#d4a017' },
+              { name: 'monkey', emoji: '🐵', color: '#8b5a2b' },
+              { name: 'frog', emoji: '🐸', color: '#52b788' },
+              { name: 'cow', emoji: '🐮', color: '#f1f1f1' },
+              { name: 'pig', emoji: '🐷', color: '#f4a6b8' },
+              { name: 'duck', emoji: '🦆', color: '#f6bd60' },
+              { name: 'chicken', emoji: '🐔', color: '#fff3b0' },
+              { name: 'sheep', emoji: '🐑', color: '#e9ecef' },
+              { name: 'horse', emoji: '🐴', color: '#a47148' },
+              { name: 'donkey', emoji: '🫏', color: '#b89b7a' },
+              { name: 'goat', emoji: '🐐', color: '#c4a484' },
+              { name: 'rooster', emoji: '🐓', color: '#e85d04' },
+              { name: 'elephant', emoji: '🐘', color: '#9aa0a6' },
+              { name: 'bear', emoji: '🐻', color: '#8d5524' },
+              { name: 'tiger', emoji: '🐯', color: '#f77f00' },
+              { name: 'penguin', emoji: '🐧', color: '#90caf9' }
+            ],
       colors: ['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#ff8b94','#c7ceea','#f8b500','#7fd1b9'],
       difficultyProgression: {
         sizeDecreasePerStage: 1.0,
@@ -496,6 +512,7 @@ https://www.youtube.com/@santelokomoko1505</textarea>
     const speedSlider = document.getElementById('speed-slider');
     const countSlider = document.getElementById('count-slider');
     const forgiveSlider = document.getElementById('forgive-slider');
+    const animalSpeedSlider = document.getElementById('animal-speed-slider');
     const videoRewardsSelect = document.getElementById('video-rewards-select');
     const customVideoRow = document.getElementById('custom-video-row');
     const videoUrlsInput = document.getElementById('video-urls-input');
@@ -504,6 +521,7 @@ https://www.youtube.com/@santelokomoko1505</textarea>
     const speedValue = document.getElementById('speed-value');
     const countValue = document.getElementById('count-value');
     const forgiveValue = document.getElementById('forgive-value');
+    const animalSpeedValue = document.getElementById('animal-speed-value');
 
     // ============ VIDEO URL PARSING ============
     function extractVideoIdsFromUrls(text) {
@@ -618,48 +636,9 @@ https://www.youtube.com/@santelokomoko1505</textarea>
       usedVideoIds.add(selected);
       return selected;
     }
-    let animalVideoPlaying = false;
+        let animalVideoPlaying = false;
 
-    function playAnimalSound(animalName) {
-      const ctx = ensureAudioCtx();
-      const now = ctx.currentTime;
-      // Distinct synthetic sound patterns for each animal. These are
-      // intentionally short and gentle rather than realistic loud recordings.
-      const patterns = {
-        cat: [520, 760, 520],
-        dog: [260, 190, 260],
-        lion: [140, 110, 85, 70],
-        monkey: [620, 480, 700, 540],
-        frog: [220, 360, 220],
-        cow: [180, 150, 125],
-        pig: [300, 360, 300, 360],
-        duck: [500, 420, 500],
-        chicken: [720, 640, 760, 680],
-        sheep: [330, 390, 330],
-        horse: [180, 260, 340, 420],
-        elephant: [90, 75, 60],
-        bear: [120, 95, 80],
-        tiger: [170, 130, 100, 80],
-        penguin: [580, 680, 580]
-      };
-      const notes = patterns[animalName] || patterns.cat;
-      notes.forEach((frequency, index) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const time = now + index * 0.1;
-        osc.type = ['dog', 'lion', 'cow', 'bear', 'tiger', 'elephant'].includes(animalName)
-          ? 'sawtooth'
-          : 'triangle';
-        osc.frequency.setValueAtTime(frequency, time);
-        gain.gain.setValueAtTime(0.22, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(time);
-        osc.stop(time + 0.2);
-      });
-    }
-
-    function queueAnimalRewardVideo() {
+        function queueAnimalRewardVideo() {
       if (videoRewardMode === 'none') return;
       customVideoIds = extractVideoIdsFromUrls(videoUrlsInput.value);
       const videoId = getRandomVideoId();
@@ -675,13 +654,13 @@ https://www.youtube.com/@santelokomoko1505</textarea>
     }
 
     function finishAnimalRewardVideo() {
-      videoModal.classList.remove('visible');
-      youtubePlayer.src = '';
-      animalVideoPlaying = false;
-      isVideoPlaying = false;
-      lastFrame = performance.now();
-      animationId = requestAnimationFrame(gameLoop);
-    }
+          videoModal.classList.remove('visible');
+          youtubePlayer.src = '';
+          animalVideoPlaying = false;
+          isVideoPlaying = false;
+          // Move to next stage after animal video reward
+          nextStage();
+        }
 
     function ensureAudioCtx() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -768,7 +747,21 @@ https://www.youtube.com/@santelokomoko1505</textarea>
         document.getElementById('game-container').appendChild(this.element);
       }
 
-      initialize() {\n        this.reset();\n        if (this.isAnimal) {\n          this.element.classList.add('animal-bubble');\n          this.element.textContent = this.animal.emoji;\n          // Set font-size proportional to bubble size for better fit\n          this.element.style.fontSize = `${this.size * 0.75}px`;\n        }\n        this.element.style.width = `${this.size}px`;\n        this.element.style.height = `${this.size}px`;\n        this.element.style.background = `radial-gradient(circle at 30% 30%, ${this.color}CC, ${this.color})`;\n        this.element.style.left = `${this.x}px`;\n        this.element.style.top = `${this.y}px`;\n        this.element.style.visibility = 'visible';\n      }\n
+      initialize() {
+        this.reset();
+        if (this.isAnimal) {
+          this.element.classList.add('animal-bubble');
+          this.element.textContent = this.animal.emoji;
+          // Set font-size proportional to bubble size for better fit
+          this.element.style.fontSize = `${this.size * 0.75}px`;
+        }
+        this.element.style.width = `${this.size}px`;
+        this.element.style.height = `${this.size}px`;
+        this.element.style.background = `radial-gradient(circle at 30% 30%, ${this.color}CC, ${this.color})`;
+        this.element.style.left = `${this.x}px`;
+        this.element.style.top = `${this.y}px`;
+        this.element.style.visibility = 'visible';
+      }
       reset() {
         const container = document.getElementById('game-container');
         const w = container.clientWidth;
@@ -789,14 +782,14 @@ https://www.youtube.com/@santelokomoko1505</textarea>
           : null;
         if (this.isAnimal) animalBubblesSpawned++;
         this.color = this.isAnimal ? this.animal.color : CONFIG.colors[Math.floor(Math.random() * CONFIG.colors.length)];
-                this.x = Math.random() * (w - this.size);
-                this.y = Math.random() * (h - this.size);
+        this.x = Math.random() * (w - this.size);
+          this.y = Math.random() * (h - this.size);
         
         // Use current stage config for speed
-        const stageConfig = getCurrentStageConfig();
-        const animalMultiplier = this.isAnimal ? CONFIG.animalSpeedMultiplier : 1;
-        this.vx = (Math.random() - 0.5) * 1.5 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed * animalMultiplier;
-        this.vy = (Math.random() - 0.5) * 1.0 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed * animalMultiplier;
+                const stageConfig = getCurrentStageConfig();
+                const animalMultiplier = this.isAnimal ? parseInt(animalSpeedSlider.value) : 1;
+                this.vx = (Math.random() - 0.5) * 1.5 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed * animalMultiplier;
+                this.vy = (Math.random() - 0.5) * 1.0 * CONFIG.baseSpeed * (speedSlider.value / 100) * stageConfig.speed * animalMultiplier;
         
         this.wobblePhase = Math.random() * Math.PI * 2;
         this.wobbleSpeed = 0.02 + Math.random() * 0.03;
@@ -821,16 +814,17 @@ https://www.youtube.com/@santelokomoko1505</textarea>
       }
 
       pop() {
-        this.popping = true;
-        this.element.classList.add('popping');
-        createParticles(this.x + this.size/2, this.y + this.size/2, this.color);
-        if (this.isAnimal) {
-          playAnimalSound(this.animal.name);
-          animalRewardCount++;
-          queueAnimalRewardVideo();
-        }
-        setTimeout(() => this.element.remove(), 300);
-      }
+              this.popping = true;
+              this.element.classList.add('popping');
+              createParticles(this.x + this.size/2, this.y + this.size/2, this.color);
+              if (this.isAnimal) {
+                // Call the global playAnimalSound function from animal-sounds.js
+                window.playAnimalSound(this.animal.name);
+                animalRewardCount++;
+                queueAnimalRewardVideo();
+              }
+              setTimeout(() => this.element.remove(), 300);
+            }
 
       containsPoint(px, py) {
         const cx = this.x + this.size / 2;
@@ -1026,27 +1020,33 @@ https://www.youtube.com/@santelokomoko1505</textarea>
     }
 
     function showNextVideo() {
-      if (currentVideoIndex >= pendingVideos.length) {
-        // All videos shown, go to next stage with brief transition
-        showStageTransition();
-        return;
-      }
+          if (currentVideoIndex >= pendingVideos.length) {
+            // All videos shown, go to next stage with brief transition
+            showStageTransition();
+            return;
+          }
 
-      const videoId = pendingVideos[currentVideoIndex];
-      const url = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`;
-      youtubePlayer.src = url;
-      videoModal.classList.add('visible');
-      isVideoPlaying = true;
+          const videoId = pendingVideos[currentVideoIndex];
+          const url = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`;
+          youtubePlayer.src = url;
+          videoModal.classList.add('visible');
+          isVideoPlaying = true;
 
-      const skipBtn = document.getElementById('video-skip-btn');
-      const remaining = pendingVideos.length - currentVideoIndex;
-      if (remaining > 1) {
-        skipBtn.textContent = `Skip Video ▶ (${remaining} left)`;
-      } else {
-        skipBtn.textContent = 'Skip Video ▶';
-      }
-      skipBtn.onclick = skipVideo;
-    }
+          const skipBtn = document.getElementById('video-skip-btn');
+          const remaining = pendingVideos.length - currentVideoIndex;
+          if (remaining > 1) {
+            skipBtn.textContent = `Skip Video ▶ (${remaining} left)`;
+          } else {
+            skipBtn.textContent = 'Skip Video ▶';
+          }
+          skipBtn.onclick = skipVideo;
+
+          // Handle video loading errors (blocked videos, etc.)
+          youtubePlayer.onerror = () => {
+            console.log(`Video ${videoId} failed to load (possibly blocked), skipping...`);
+            skipVideo(); // Automatically skip to next video
+          };
+        }
 
     function skipVideo() {
       videoModal.classList.remove('visible');
@@ -1171,34 +1171,40 @@ https://www.youtube.com/@santelokomoko1505</textarea>
     soundSelect.onchange = () => CONFIG.soundType = soundSelect.value;
 
     function loadSettings() {
-      try {
-        const saved = JSON.parse(localStorage.getItem('bubblePopSettings') || '{}');
-        if (saved.size) { sizeSlider.value = saved.size; sizeValue.textContent = saved.size; CONFIG.baseBubbleSize = saved.size; }
-        if (saved.speed) { speedSlider.value = saved.speed; speedValue.textContent = saved.speed; }
-        if (saved.count) { countSlider.value = saved.count; countValue.textContent = saved.count; CONFIG.maxBubbles = saved.count; }
-        if (saved.forgive) { forgiveSlider.value = saved.forgive; forgiveValue.textContent = saved.forgive; CONFIG.clickForgiveness = saved.forgive; }
-        if (saved.videoMode) { videoRewardsSelect.value = saved.videoMode; videoRewardMode = saved.videoMode; }
-        if (saved.videoUrls) { videoUrlsInput.value = saved.videoUrls; }
-        if (saved.sound) { soundSelect.value = saved.sound; CONFIG.soundType = saved.sound; }
-      } catch {}
-    }
+          try {
+            const saved = JSON.parse(localStorage.getItem('bubblePopSettings') || '{}');
+            if (saved.size) { sizeSlider.value = saved.size; sizeValue.textContent = saved.size; CONFIG.baseBubbleSize = saved.size; }
+            if (saved.speed) { speedSlider.value = saved.speed; speedValue.textContent = saved.speed; }
+            if (saved.count) { countSlider.value = saved.count; countValue.textContent = saved.count; CONFIG.maxBubbles = saved.count; }
+            if (saved.forgive) { forgiveSlider.value = saved.forgive; forgiveValue.textContent = saved.forgive; CONFIG.clickForgiveness = saved.forgive; }
+            if (saved.animalSpeed) { animalSpeedSlider.value = saved.animalSpeed; animalSpeedValue.textContent = saved.animalSpeed; }
+            if (saved.videoMode) { videoRewardsSelect.value = saved.videoMode; videoRewardMode = saved.videoMode; }
+            if (saved.videoUrls) { videoUrlsInput.value = saved.videoUrls; }
+            if (saved.sound) { soundSelect.value = saved.sound; CONFIG.soundType = saved.sound; }
+          } catch {}
+        }
 
-    function saveSettings() {
-      const s = {
-        size: parseInt(sizeSlider.value),
-        speed: parseInt(speedSlider.value),
-        count: parseInt(countSlider.value),
-        forgive: parseInt(forgiveSlider.value),
-        videoMode: videoRewardsSelect.value,
-        videoUrls: videoUrlsInput.value.trim(),
-        sound: soundSelect.value
-      };
-      localStorage.setItem('bubblePopSettings', JSON.stringify(s));
-    }
+        function saveSettings() {
+              const s = {
+                size: parseInt(sizeSlider.value),
+                speed: parseInt(speedSlider.value),
+                count: parseInt(countSlider.value),
+                forgive: parseInt(forgiveSlider.value),
+                animalSpeed: parseInt(animalSpeedSlider.value),
+                videoMode: videoRewardsSelect.value,
+                videoUrls: videoUrlsInput.value.trim(),
+                sound: soundSelect.value
+              };
+              localStorage.setItem('bubblePopSettings', JSON.stringify(s));
+            }
 
-    [sizeSlider, speedSlider, countSlider, forgiveSlider, videoRewardsSelect, videoUrlsInput, soundSelect].forEach(el => {
-      el.addEventListener('change', saveSettings);
-    });
+            animalSpeedSlider.oninput = () => {
+              animalSpeedValue.textContent = animalSpeedSlider.value;
+            };
+
+            [sizeSlider, speedSlider, countSlider, forgiveSlider, animalSpeedSlider, videoRewardsSelect, videoUrlsInput, soundSelect].forEach(el => {
+              el.addEventListener('change', saveSettings);
+            });
 
     // ============ INIT ============
     function init() {
