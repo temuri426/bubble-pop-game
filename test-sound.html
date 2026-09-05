@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Animal Sound Test - Bubble Pop Game</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .log { border: 1px solid #ccc; padding: 10px; height: 300px; overflow: auto; margin-top: 10px; background: #f9f9f9; }
+        button { margin: 5px; padding: 10px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>Animal Sound Test</h1>
+    <div>
+        <button id="testCat">Test Cat</button>
+        <button id="testDog">Test Dog</button>
+        <button id="testTiger">Test Tiger (synth)</button>
+        <button id="testAll">Test All Animals</button>
+    </div>
+    <div class="log" id="log"></div>
+
+    <script>
+        // Log to both console and div
+        const logDiv = document.getElementById('log');
+        function log(message) {
+            const line = document.createElement('div');
+            line.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            logDiv.appendChild(line);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        // Override console to also log to div
+        const origLog = console.log;
+        console.log = function(...args) {
+            origLog.apply(console, args);
+            log(args.join(' '));
+        };
+        const origWarn = console.warn;
+        console.warn = function(...args) {
+            origWarn.apply(console, args);
+            log('WARN: ' + args.join(' '));
+        };
+        const origErr = console.error;
+        console.error = function(...args) {
+            origErr.apply(console, args);
+            log('ERROR: ' + args.join(' '));
+        };
+
+        // Load the animal sound system from the correct path
+        function loadSoundSystem() {
+            return new Promise((resolve, reject) => {
+                // Check if already loaded
+                if (window.playAnimalSound) {
+                    resolve();
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = 'sounds/animal-sounds.js?t=' + Date.now();
+                script.onload = () => {
+                    log('Sound system script loaded');
+                    // Give it a moment to execute
+                    setTimeout(() => {
+                        if (window.playAnimalSound) {
+                            log('window.playAnimalSound is now available');
+                            resolve();
+                        } else {
+                            log('ERROR: window.playAnimalSound still not defined after script load');
+                            reject(new Error('playAnimalSound not exported'));
+                        }
+                    }, 100);
+                };
+                script.onerror = (e) => {
+                    log('ERROR: Failed to load sound system script: ' + e.message);
+                    reject(e);
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        async function testAnimal(animal) {
+            log(`Testing sound for ${animal}...`);
+            try {
+                await loadSoundSystem();
+                if (window.playAnimalSound) {
+                    log(`Calling playAnimalSound('${animal}')`);
+                    await window.playAnimalSound(animal);
+                    log(`Finished playing ${animal}`);
+                } else {
+                    log('ERROR: playAnimalSound not available');
+                }
+            } catch (e) {
+                log(`ERROR testing ${animal}: ${e.message}`);
+            }
+        }
+
+        async testAllAnimals() {
+            const animals = ['cat', 'dog', 'lion', 'monkey', 'frog', 'cow', 'pig', 'duck', 'chicken', 'sheep', 'horse', 'donkey', 'goat', 'rooster', 'elephant', 'bear', 'tiger', 'penguin'];
+            log(`Testing all ${animals.length} animals...`);
+            for (const animal of animals) {
+                await testAnimal(animal);
+                // Small delay between sounds
+                await new Promise(r => setTimeout(r, 500));
+            }
+            log('Finished testing all animals');
+        }
+
+        // Button handlers
+        document.getElementById('testCat').onclick = () => testAnimal('cat');
+        document.getElementById('testDog').onclick = () => testAnimal('dog');
+        document.getElementById('testTiger').onclick = () => testAnimal('tiger');
+        document.getElementById('testAll').onclick = () => testAllAnimals();
+
+        // Initial log
+        log('Page loaded. Click buttons to test sounds.');
+    </script>
+</body>
+</html>

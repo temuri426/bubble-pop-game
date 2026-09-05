@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Animal Sound Test</title>
+</head>
+<body>
+    <h1>Animal Sound Test</h1>
+    <div>
+        <button id="testCat">Test Cat Sound</button>
+        <button id="testDog">Test Dog Sound</button>
+        <button id="testTiger">Test Tiger Sound</button>
+        <button id="testAll">Test All Sounds</button>
+    </div>
+    <div id="log" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; height: 200px; overflow-y: auto;"></div>
+    
+    <script src="sounds/animal-sounds.js"></script>
+    <script>
+        const logDiv = document.getElementById('log');
+        
+        function log(message) {
+            console.log(message);
+            logDiv.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' - ' + message + '</div>';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        document.getElementById('testCat').onclick = async () => {
+            log('Testing cat sound...');
+            await window.playAnimalSound('cat');
+            log('Cat sound test completed');
+        };
+        
+        document.getElementById('testDog').onclick = async () => {
+            log('Testing dog sound...');
+            await window.playAnimalSound('dog');
+            log('Dog sound test completed');
+        };
+        
+        document.getElementById('testTiger').onclick = async () => {
+            log('Testing tiger sound...');
+            await window.playAnimalSound('tiger');
+            log('Tiger sound test completed');
+        };
+        
+        document.getElementById('testAll').onclick = async () => {
+            log('Testing all sounds...');
+            const animals = ['cat', 'dog', 'lion', 'monkey', 'frog', 'cow', 'pig', 'duck', 'chicken', 'sheep', 'horse', 'donkey', 'goat', 'rooster', 'elephant', 'bear', 'tiger', 'penguin'];
+            for (const animal of animals) {
+                log(`Testing ${animal} sound...`);
+                await window.playAnimalSound(animal);
+                await new Promise(resolve => setTimeout(resolve, 500)); // Small delay between sounds
+            }
+            log('All sound tests completed');
+        };
+        
+        // Auto-resume audio context on first click
+        document.addEventListener('click', () => {
+            if (window.audioContext && window.audioContext.state === 'suspended') {
+                window.audioContext.resume().then(() => log('Audio context resumed'));
+            }
+        }, { once: true });
+        
+        log('Animal sound test page loaded. Click a button to test sounds.');
+    </script>
+</body>
+</html>
