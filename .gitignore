@@ -1,0 +1,2 @@
+# Ignore local video files (large, ~4.6 GB) - served locally, not committed
+YT videos/
