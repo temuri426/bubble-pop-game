@@ -624,9 +624,13 @@ function pickFolderViaDialog() {
           const ok = await loadVideosFromFolder(path);
           usedVideoIds.clear();
           if (videoFolderStatus) {
-            videoFolderStatus.textContent = ok
-              ? '✓ Loaded ' + localVideos.length + ' video(s) from "' + path + '" - no copies'
-              : '⚠ Could not load videos from "' + path + '"';
+            if (ok && videoRewardMode === 'none') {
+              videoFolderStatus.textContent = '⚠ ' + localVideos.length + ' video(s) loaded but Video Rewards is Disabled - enable it above!';
+            } else {
+              videoFolderStatus.textContent = ok
+                ? '✓ Loaded ' + localVideos.length + ' video(s) from "' + path + '" - no copies'
+                : '⚠ Could not load videos from "' + path + '"';
+            }
           }
           saveSettings();
         }
@@ -1284,6 +1288,9 @@ let animalVideoPlaying = false;
       loadSettings();
             updateUI();
             applyStageDifficulty();
+            if (videoRewardMode === 'none' && videoFolderStatus) {
+              videoFolderStatus.textContent = '⚠ Video Rewards is Disabled - set it to "Local Videos" to play reward videos';
+            }
             // Preload the local video library for the configured path folder.
                         // (Native-picker blob URLs do not survive a page reload, so on
                         // load we always start in path mode and read from the stored path.)
