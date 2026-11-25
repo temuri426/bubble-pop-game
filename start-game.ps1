@@ -1,8 +1,10 @@
 # Bubble Pop Game Launcher (PowerShell)
 # Right-click this file and "Run with PowerShell" or create a shortcut to:
-# powershell.exe -ExecutionPolicy Bypass -File "C:\Users\temuri\bubble-pop-game\start-game.ps1"
+# powershell.exe -ExecutionPolicy Bypass -File "<path to start-game.ps1>"
 
-$gameDir = "C:\Users\temuri\bubble-pop-game"
+# Locate the game directory = the folder this script sits in.
+$gameDir = $PSScriptRoot
+if ([string]::IsNullOrEmpty($gameDir)) { $gameDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $port = 8080
 $url = "http://localhost:$port"
 

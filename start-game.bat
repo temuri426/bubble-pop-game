@@ -3,8 +3,9 @@ title Bubble Pop Game Launcher
 echo Starting Bubble Pop Game...
 echo.
 
-REM Change to the game directory
-cd /d "C:\Users\temuri\bubble-pop-game"
+REM Locate the game directory (the folder this launcher sits in).
+REM %~dp0 ends with a backslash, so no separator is needed.
+cd /d "%~dp0"
 
 REM Check if Python is available
 python --version >nul 2>&1
