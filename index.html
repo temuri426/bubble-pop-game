@@ -89,8 +89,8 @@
     }
     .animal-bubble::before { display: none; }
     @keyframes float {
-      0%, 100% { transform: translateY(0) rotate(0deg); }
-      50% { transform: translateY(-8px) rotate(3deg); }
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
     }
     .bubble.popping {
       animation: pop 0.3s ease-out forwards;
@@ -380,15 +380,26 @@
                           <small id="video-folder-status" style="color:var(--accent); font-weight:bold;"></small>
                         </div>
     <div class="setting-row">
-      <label>Sound</label>
-      <select id="sound-select">
-        <option value="pop">Pop (default)</option>
-        <option value="chime">Chime</option>
-        <option value="bounce">Bounce</option>
-        <option value="none">Off</option>
-      </select>
-    </div>
-  </div>
+          <label>Screen Fit (Auto-Zoom)</label>
+          <select id="screen-fit-select">
+            <option value="auto">Auto (fits your screen)</option>
+            <option value="100">100%</option>
+            <option value="75">75%</option>
+            <option value="50">50%</option>
+            <option value="25">25%</option>
+          </select>
+          <small>Auto chooses the best zoom for your laptop display. Pick a fixed value if you prefer.</small>
+        </div>
+        <div class="setting-row">
+          <label>Sound</label>
+          <select id="sound-select">
+            <option value="pop">Pop (default)</option>
+            <option value="chime">Chime</option>
+            <option value="bounce">Bounce</option>
+            <option value="none">Off</option>
+          </select>
+        </div>
+      </div>
 
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
@@ -537,11 +548,65 @@
                         
                         const videoFolderStatus = document.getElementById('video-folder-status');
                 const soundSelect = document.getElementById('sound-select');
+                const screenFitSelect = document.getElementById('screen-fit-select');
     const sizeValue = document.getElementById('size-value');
     const speedValue = document.getElementById('speed-value');
     const countValue = document.getElementById('count-value');
     const forgiveValue = document.getElementById('forgive-value');
     const animalSpeedValue = document.getElementById('animal-speed-value');
+
+    // ============ SCREEN FIT (AUTO-ZOOM) ============
+    // The game is styled for a large desktop (~1600x900 logical). On laptop
+    // screens (often with Windows display scaling) it overflows, which is why
+    // 50% browser zoom helped. We now compute the best zoom automatically.
+    let screenFitMode = 'auto'; // 'auto' | percent number string
+
+    // Reference design size the layout was built for.
+    const FIT_DESIGN_W = 1600;
+    const FIT_DESIGN_H = 900;
+
+    // Tracks the last zoom we applied so we can recover the natural
+    // (un-zoomed) CSS viewport even after zoom changes innerWidth.
+    let appliedFitScale = 1;
+
+    function computeFitScale() {
+      // Natural CSS viewport = what the browser reports divided by any zoom
+      // we already applied. This correctly accounts for Windows display
+      // scaling (a 1366px laptop at 150% scaling reports ~910 CSS px).
+      const naturalW = window.innerWidth / appliedFitScale;
+      const naturalH = window.innerHeight / appliedFitScale;
+      // Fit both dimensions; never scale up beyond 100%.
+      const s = Math.min(naturalW / FIT_DESIGN_W, naturalH / FIT_DESIGN_H, 1);
+      // Keep usable - don't go below 35% or above 100%.
+      return Math.max(0.35, Math.min(1, s));
+    }
+
+    function applyScreenFit() {
+      let scale = 1;
+      if (screenFitMode === 'auto') {
+        scale = computeFitScale();
+      } else {
+        scale = (parseInt(screenFitMode, 10) || 100) / 100;
+        scale = Math.max(0.25, Math.min(1, scale));
+      }
+      // Chromium/Edge supports the CSS 'zoom' property on the root element -
+      // same effect as browser zoom, applied automatically.
+      appliedFitScale = scale;
+      document.documentElement.style.zoom = scale;
+      // Keep body layout sane when zoomed.
+      document.body.style.width = '100vw';
+      document.body.style.height = '100vh';
+      console.log('Screen fit zoom: ' + Math.round(scale * 100) + '%');
+    }
+
+    if (screenFitSelect) {
+      screenFitSelect.onchange = () => {
+        screenFitMode = screenFitSelect.value;
+        applyScreenFit();
+        saveSettings();
+      };
+    }
+    window.addEventListener('resize', applyScreenFit);
 
     // ============ LOCAL VIDEO LIBRARY ============
     // Reward videos can come from either a typed folder path (served over
@@ -847,8 +912,8 @@ let animalVideoPlaying = false;
 
       update(dt) {
         if (this.popping) return;
-        this.wobblePhase += this.wobbleSpeed * dt * 60;
-        this.x += this.vx * dt * 60 + Math.sin(this.wobblePhase) * 0.3;
+        // Smooth linear movement - no sine jitter (that caused visible shaking).
+        this.x += this.vx * dt * 60;
         this.y += this.vy * dt * 60;
 
         const container = document.getElementById('game-container');
@@ -1243,6 +1308,7 @@ let animalVideoPlaying = false;
                 if (saved.forgive) { forgiveSlider.value = saved.forgive; forgiveValue.textContent = saved.forgive; CONFIG.clickForgiveness = saved.forgive; }
                 if (saved.animalSpeed) { animalSpeedSlider.value = saved.animalSpeed; animalSpeedValue.textContent = saved.animalSpeed; }
                 if (saved.videoMode) { videoRewardsSelect.value = saved.videoMode; videoRewardMode = saved.videoMode; }
+                if (saved.screenFit) { screenFitSelect.value = saved.screenFit; screenFitMode = saved.screenFit; }
                 if (saved.videoFolder) { videoFolderInput.value = saved.videoFolder; }
                             if (saved.sound) { soundSelect.value = saved.sound; CONFIG.soundType = saved.sound; }
               } catch {}
@@ -1257,7 +1323,8 @@ let animalVideoPlaying = false;
                     animalSpeed: parseInt(animalSpeedSlider.value),
                                     videoMode: videoRewardsSelect.value,
                                     videoFolder: videoFolderInput.value.trim(),
-                                    sound: soundSelect.value
+                                    sound: soundSelect.value,
+                                    screenFit: screenFitSelect ? screenFitSelect.value : 'auto'
                   };
                   localStorage.setItem('bubblePopSettings', JSON.stringify(s));
                 }
@@ -1266,7 +1333,7 @@ let animalVideoPlaying = false;
                   animalSpeedValue.textContent = animalSpeedSlider.value;
                 };
 
-                [sizeSlider, speedSlider, countSlider, forgiveSlider, animalSpeedSlider, videoRewardsSelect, videoFolderInput, soundSelect].forEach(el => {
+                [sizeSlider, speedSlider, countSlider, forgiveSlider, animalSpeedSlider, videoRewardsSelect, videoFolderInput, soundSelect, screenFitSelect].forEach(el => {
                   el.addEventListener('change', saveSettings);
                 });
 
@@ -1282,6 +1349,7 @@ let animalVideoPlaying = false;
       }, { passive: true });
 
       loadSettings();
+            applyScreenFit();
             updateUI();
             applyStageDifficulty();
             // Preload the local video library for the configured path folder.
