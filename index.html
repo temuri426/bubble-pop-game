@@ -891,7 +891,8 @@ let animalVideoPlaying = false;
 
     // ============ PARTICLES ============
     function createParticles(x, y, color) {
-      const count = 8 + Math.floor(Math.random() * 4);
+      // Fewer particles per pop - lighter on low-power laptops.
+      const count = 5 + Math.floor(Math.random() * 3);
       for (let i = 0; i < count; i++) {
         const p = document.createElement('div');
         p.className = 'particle';
@@ -910,7 +911,10 @@ let animalVideoPlaying = false;
     // ============ CONFETTI ============
     function launchConfetti() {
       const colors = ['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#ff8b94','#f8b500'];
-      for (let i = 0; i < 50; i++) {
+      // Cap total confetti pieces so bursts don't stack on weak CPUs.
+      const existing = celebrationEl.querySelectorAll('.confetti').length;
+      const budget = Math.max(0, 30 - existing);
+      for (let i = 0; i < budget; i++) {
         const c = document.createElement('div');
         c.className = 'confetti';
         c.style.left = `${Math.random() * 100}%`;
@@ -945,8 +949,18 @@ let animalVideoPlaying = false;
       bubbles.push(b);
     }
 
+    // 30 FPS target - bubbles move slowly, so capping the loop here cuts CPU
+    // usage roughly in half on low-power laptops with no visible change.
+    const FRAME_INTERVAL = 1000 / 30;
+
     function gameLoop(timestamp) {
       if (isVideoPlaying) return;
+
+      // Skip work until at least one frame interval has elapsed.
+      if (timestamp - (lastFrame || timestamp) < FRAME_INTERVAL) {
+        animationId = requestAnimationFrame(gameLoop);
+        return;
+      }
 
       const dt = Math.min((timestamp - (lastFrame || timestamp)) / 1000, 0.1);
       lastFrame = timestamp;
