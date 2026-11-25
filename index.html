@@ -45,7 +45,7 @@
       position: relative;
       background: linear-gradient(180deg, #f0f8ff 0%, #e8f4fd 100%);
       overflow: hidden;
-      cursor: crosshair;
+      cursor: default;
       min-height: 400px;
     }
     #game-canvas { 
@@ -371,10 +371,14 @@
               <small>Reward videos play from the local video folder. No internet needed.</small>
             </div>
             <div class="setting-row">
-              <label>Video Folder Path</label>
-              <input type="text" id="video-folder-input" value="YT videos" placeholder="e.g. YT videos">
-              <small>Folder containing the video files (relative to the game folder, e.g. &quot;YT videos&quot;). All .mp4 files there are used.</small>
-            </div>
+                          <label>Video Folder Path</label>
+                          <div style="display:flex; gap:8px; align-items:center;">
+                            <input type="text" id="video-folder-input" value="D:\YT videos" placeholder="e.g. D:\YT videos" style="flex:1;">
+                            <button type="button" id="video-folder-btn" title="Open folder dialog to choose the video folder" style="padding:8px 14px; font-size:0.9rem; border-radius:8px; border:none; background:var(--accent); color:white; cursor:pointer; font-family:inherit;">Browse…</button>
+                          </div>
+                          <small>Enter any folder path - relative (e.g. &quot;YT videos&quot;) or absolute (e.g. &quot;D:\YT videos&quot;). Press <b>Enter</b> or click <b>Browse…</b> to pick a folder with the Windows dialog. Videos play directly from that folder, no copies.</small>
+                          <small id="video-folder-status" style="color:var(--accent); font-weight:bold;"></small>
+                        </div>
     <div class="setting-row">
       <label>Sound</label>
       <select id="sound-select">
@@ -528,8 +532,11 @@
     const forgiveSlider = document.getElementById('forgive-slider');
     const animalSpeedSlider = document.getElementById('animal-speed-slider');
     const videoRewardsSelect = document.getElementById('video-rewards-select');
-        const videoFolderInput = document.getElementById('video-folder-input');
-            const soundSelect = document.getElementById('sound-select');
+            const videoFolderInput = document.getElementById('video-folder-input');
+                        const videoFolderBtn = document.getElementById('video-folder-btn');
+                        
+                        const videoFolderStatus = document.getElementById('video-folder-status');
+                const soundSelect = document.getElementById('sound-select');
     const sizeValue = document.getElementById('size-value');
     const speedValue = document.getElementById('speed-value');
     const countValue = document.getElementById('count-value');
@@ -537,35 +544,45 @@
     const animalSpeedValue = document.getElementById('animal-speed-value');
 
     // ============ LOCAL VIDEO LIBRARY ============
-    // Reward videos are played from a configurable local folder. On load (and
-    // whenever the folder path changes) we fetch the folder's directory listing
-    // and collect every video file found, so any folder works without listing
-    // the files by hand.
+    // Reward videos can come from either a typed folder path (served over
+    // HTTP) or a folder picked with the native Windows folder dialog.
+    // localVideos holds objects: { src, name } where src is either a
+    // URL-encoded HTTP path or a blob: object URL from the picker.
     const VIDEO_EXTS = ['.mp4', '.webm', '.ogg', '.mov', '.m4v', '.mkv'];
+
+    // Mode: 'path' = typed folder path; 'picked' = native folder picker
+    let videoFolderMode = 'path';
+
+    function videoNameFromRaw(raw) {
+      try {
+        const decoded = decodeURIComponent(raw.split('/').pop() || '');
+        return decoded.replace(/_(1080|720|480|2160)p\.mp4$/i, '').replace(/\.mp4$/i, '').replace(/\.(webm|ogg|mov|m4v|mkv)$/i, '');
+      } catch { return ''; }
+    }
 
     async function loadVideosFromFolder(folderPath) {
       try {
-        const folder = (folderPath || '').trim().replace(/^\/+|\/+$/g, '');
+        const folder = (folderPath || '').trim();
         if (!folder) { localVideos = []; console.warn('Empty video folder path'); return false; }
-        const encodedFolder = encodeURIComponent(folder);
-        const resp = await fetch(encodedFolder + '/');
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const text = await resp.text();
 
-        // Python's http.server (and most static hosts) render a directory
-        // listing with <a href="..."> links. The hrefs are already
-        // percent-encoded and relative to the folder.
-        const paths = [];
-        const re = /<a\s+href="([^"]+)"/gi;
-        let m;
-        while ((m = re.exec(text)) !== null) {
-          const raw = m[1];
-          const lower = raw.toLowerCase();
-          if (VIDEO_EXTS.some(ext => lower.endsWith(ext))) {
-            paths.push(encodedFolder + '/' + raw);
-          }
+        // Ask the custom server to list the videos in this folder. The server
+        // resolves both relative paths (under the game folder) and absolute
+        // paths like D:\YT videos, so no browser file-picker is needed.
+        const resp = await fetch('api/list_videos?folder=' + encodeURIComponent(folder));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+
+        if (!data.ok) {
+          console.warn('Video folder not found: ' + folder + ' (' + (data.error||'') + ')');
+          localVideos = [];
+          return false;
         }
-        localVideos = Array.from(new Set(paths));
+
+        const found = data.videos.map(name => ({
+          src: 'video?folder=' + encodeURIComponent(folder) + '&name=' + encodeURIComponent(name),
+          name: videoNameFromRaw(name)
+        }));
+        localVideos = found;
         console.log('Loaded ' + localVideos.length + ' local videos from folder: ' + folder);
         return localVideos.length > 0;
       } catch (e) {
@@ -575,9 +592,48 @@
       }
     }
 
-    function getLocalVideoPath(path) {
-      // Path is already fully URL-encoded.
-      return path;
+function pickFolderViaDialog() {
+      // Ask the server to open a native Windows 'Browse for Folder' dialog.
+      // The chosen absolute path is filled into the input and videos load
+      // straight from it - no browser upload/copy prompts.
+      if (videoFolderStatus) videoFolderStatus.textContent = 'Opening folder dialog...';
+      fetch('api/pick_folder')
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.ok && data.folder) {
+            videoFolderInput.value = data.folder;
+            loadVideoFolderFromInput();
+          } else {
+            if (videoFolderStatus) videoFolderStatus.textContent = 'No folder selected / cancelled';
+          }
+        })
+        .catch(e => {
+          console.warn('pick_folder error', e);
+          if (videoFolderStatus) videoFolderStatus.textContent = '⚠ Could not open folder dialog';
+        });
+    }
+
+    async function loadVideoFolderFromInput() {
+          // Load videos from whatever path is typed (relative or absolute like D:\YT videos).
+          const path = (videoFolderInput.value || '').trim();
+          if (!path) {
+            if (videoFolderStatus) videoFolderStatus.textContent = '⚠ Enter a folder path';
+            return;
+          }
+          videoFolderMode = 'path';
+          const ok = await loadVideosFromFolder(path);
+          usedVideoIds.clear();
+          if (videoFolderStatus) {
+            videoFolderStatus.textContent = ok
+              ? '✓ Loaded ' + localVideos.length + ' video(s) from "' + path + '" - no copies'
+              : '⚠ Could not load videos from "' + path + '"';
+          }
+          saveSettings();
+        }
+
+    function getLocalVideoPath(video) {
+      // video is an object {src, name}; src may be an HTTP path or blob URL.
+      return video ? video.src : '';
     }
 
     function getRandomVideoId() {
@@ -597,14 +653,38 @@
       return selected;
     }
 
-    function videoDisplayName(path) {
-      // Show a short friendly title from the file path (strip folder + extension).
-      try {
-        const decoded = decodeURIComponent(path.split('/').pop() || '');
-        return decoded.replace(/_(1080|720|480|2160)p\.mp4$/i, '').replace(/\.mp4$/i, '').replace(/\.(webm|ogg|mov|m4v|mkv)$/i, '');
-      } catch {
-        return '';
-      }
+    function videoDisplayName(video) {
+      return video ? video.name : '';
+    }
+
+
+let _playOnTapAttached = false;
+    function attachPlayOnTap() {
+      if (_playOnTapAttached) return;
+      _playOnTapAttached = true;
+      const handler = () => {
+        _playOnTapAttached = false;
+        document.removeEventListener('pointerdown', handler);
+        document.removeEventListener('touchend', handler);
+        localPlayer.play().catch(() => {});
+      };
+      document.addEventListener('pointerdown', handler, { once: true });
+      document.addEventListener('touchend', handler, { once: true });
+    }
+
+    function prepareAndPlayVideo(video, animalReward) {
+      if (!localPlayer) return;
+      localPlayer.removeAttribute('src');
+      localPlayer.src = getLocalVideoPath(video);
+      videoTitleEl.textContent = videoDisplayName(video) || '';
+      videoModal.classList.add('visible');
+      isVideoPlaying = true;
+      localPlayer.load();
+      // Attempt autoplay. Browsers may block it because the reward fires from a
+      // requestAnimationFrame (outside the user's click gesture). If blocked, we
+      // start playing on the next tap anywhere - the child is already tapping.
+      const p = localPlayer.play();
+      if (p) p.catch(() => { attachPlayOnTap(); });
     }
 
 let animalVideoPlaying = false;
@@ -615,11 +695,7 @@ let animalVideoPlaying = false;
                       if (!videoId || animalVideoPlaying || isVideoPlaying) return;
 
               animalVideoPlaying = true;
-              isVideoPlaying = true;
-              localPlayer.src = getLocalVideoPath(videoId);
-              videoTitleEl.textContent = videoDisplayName(videoId) || '';
-              videoModal.classList.add('visible');
-              localPlayer.play().catch(() => {});
+              prepareAndPlayVideo(videoId, true);
               const skipBtn = document.getElementById('video-skip-btn');
               skipBtn.textContent = 'Skip Animal Video ▶';
               skipBtn.onclick = finishAnimalRewardVideo;
@@ -952,10 +1028,10 @@ let animalVideoPlaying = false;
       const stageTime = performance.now() - stageStartTime;
       console.log(`Stage ${stageIndex + 1} completed in ${Math.round(stageTime / 1000)}s`);
 
-      // Ensure we have videos loaded for the configured folder
-                  if (localVideos.length === 0) {
-                    await loadVideosFromFolder(videoFolderInput.value);
-                  }
+      // Ensure we have videos loaded (picker mode keeps its prior result)
+                        if (localVideos.length === 0 && videoFolderMode !== 'picked') {
+                          await loadVideosFromFolder(videoFolderInput.value);
+                        }
 
                   if (videoRewardMode === 'none' || localVideos.length === 0) {
                     nextStage();
@@ -995,12 +1071,7 @@ let animalVideoPlaying = false;
               }
 
               const videoId = pendingVideos[currentVideoIndex];
-              localPlayer.src = getLocalVideoPath(videoId);
-              videoTitleEl.textContent = videoDisplayName(videoId) || '';
-              videoModal.classList.add('visible');
-              isVideoPlaying = true;
-              localPlayer.play().catch(() => {});
-
+              prepareAndPlayVideo(videoId, true);
               const skipBtn = document.getElementById('video-skip-btn');
               const remaining = pendingVideos.length - currentVideoIndex;
               if (remaining > 1) {
@@ -1143,10 +1214,11 @@ let animalVideoPlaying = false;
           videoRewardMode = videoRewardsSelect.value;
         };
             soundSelect.onchange = () => CONFIG.soundType = soundSelect.value;
-            videoFolderInput.onchange = () => {
-              // Reload videos when the folder path changes
-              loadVideosFromFolder(videoFolderInput.value);
-            };
+            videoFolderInput.onchange = loadVideoFolderFromInput;
+            videoFolderInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); loadVideoFolderFromInput(); } };
+                          if (videoFolderBtn) {
+                            videoFolderBtn.onclick = pickFolderViaDialog;
+                          }
 
         function loadSettings() {
               try {
@@ -1198,9 +1270,11 @@ let animalVideoPlaying = false;
       loadSettings();
             updateUI();
             applyStageDifficulty();
-            // Preload the local video library for the configured folder
-            usedVideoIds.clear();
-            loadVideosFromFolder(videoFolderInput.value);
+            // Preload the local video library for the configured path folder.
+                        // (Native-picker blob URLs do not survive a page reload, so on
+                        // load we always start in path mode and read from the stored path.)
+                        usedVideoIds.clear();
+                        loadVideosFromFolder(videoFolderInput.value);
             const container = document.getElementById('game-container');
       const waitForLayout = () => {
         if (container.clientWidth > 0 && container.clientHeight > 0) {

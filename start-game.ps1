@@ -35,9 +35,9 @@ try {
 if (-not $portFree) {
     Write-Host "Port $port already in use - assuming server is already running" -ForegroundColor Yellow
 } else {
-    # Start HTTP server in background
-    Write-Host "Starting HTTP server on $url..." -ForegroundColor Green
-    $serverProcess = Start-Process python -ArgumentList "-m http.server $port" -WorkingDirectory $gameDir -WindowStyle Minimized -PassThru
+    # Start Bubble Pop custom server in background (supports absolute video folder paths)
+        Write-Host "Starting HTTP server on $url... " -ForegroundColor Green
+        $serverProcess = Start-Process python -ArgumentList "server.py" -WorkingDirectory $gameDir -WindowStyle Minimized -PassThru
     
     # Wait for server to start
     Start-Sleep -Seconds 2

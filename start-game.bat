@@ -18,8 +18,8 @@ if errorlevel 1 (
 echo Starting HTTP server on http://localhost:8080
 echo.
 
-REM Start Python HTTP server in background
-start "BubblePopServer" /min python -m http.server 8080
+REM Start Bubble Pop custom server in background (supports absolute video folder paths)
+start "BubblePopServer" /min python server.py
 
 REM Wait a moment for server to start
 timeout /t 2 /nobreak >nul
