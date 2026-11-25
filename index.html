@@ -57,15 +57,20 @@
     }
     .bubble {
       position: absolute;
+      left: 0;
+      top: 0;
       border-radius: 50%;
       pointer-events: none;
       box-shadow:
         inset -8px -8px 16px rgba(255,255,255,0.6),
         inset 8px 8px 16px rgba(0,0,0,0.1),
         0 4px 12px rgba(0,0,0,0.15);
-      animation: float 3s ease-in-out infinite;
       z-index: 10;
+      /* Position + gentle bob are both driven on 'transform' by JS so the
+         browser composites the layer (GPU) instead of re-layouting every
+         frame - this stops the jitter/shaking on weak integrated GPUs. */
       will-change: transform;
+      transform-origin: center;
     }
     .bubble::before {
       content: '';
@@ -88,10 +93,6 @@
       border: 4px solid rgba(255,255,255,0.85);
     }
     .animal-bubble::before { display: none; }
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
     .bubble.popping {
       animation: pop 0.3s ease-out forwards;
       pointer-events: none;
@@ -634,6 +635,28 @@ function pickFolderViaDialog() {
           }
           saveSettings();
         }
+
+    // ============ SCREEN AUTO-FIT ============
+    // The layout was built for ~1600x900. On smaller laptop screens (and with
+    // Windows display scaling) it overflows, so we apply a root-level zoom to
+    // fill the window - equivalent to Edge's own zoom, but automatic.
+    // NOTE: we only touch documentElement.style.zoom - NOT body width/height -
+    // so the page fills the whole browser window with no letterbox.
+    const FIT_DESIGN_W = 1600;
+    const FIT_DESIGN_H = 900;
+
+    function computeFitScale() {
+      const availW = window.innerWidth || window.screen.availWidth;
+      const availH = window.innerHeight || window.screen.availHeight;
+      const s = Math.min(availW / FIT_DESIGN_W, availH / FIT_DESIGN_H, 1);
+      return Math.max(0.35, Math.min(1, s));
+    }
+
+    function applyScreenFit() {
+      const scale = computeFitScale();
+      document.documentElement.style.zoom = scale;
+      console.log('Auto-fit zoom: ' + Math.round(scale * 100) + '%');
+    }
 
     function getLocalVideoPath(video) {
       // video is an object {src, name}; src may be an HTTP path or blob URL.
@@ -1277,6 +1300,8 @@ let animalVideoPlaying = false;
     // ============ INIT ============
     function init() {
       initCanvas();
+      applyScreenFit();
+      window.addEventListener('resize', applyScreenFit);
       
       canvas.addEventListener('click', handleClick);
       canvas.addEventListener('touchstart', (e) => {
