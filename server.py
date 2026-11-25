@@ -158,6 +158,19 @@ class BubblePopHandler(SimpleHTTPRequestHandler):
                 remaining -= len(chunk)
 
     # ---------- routing ----------
+    def send_head(self):
+        # Force fresh copy of the game page so laptops never run a stale cached
+        # version (stale cache was causing the old shake + needing manual zoom).
+        resp = super().send_head()
+        if resp:
+            try:
+                resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                resp.headers['Pragma'] = 'no-cache'
+                resp.headers['Expires'] = '0'
+            except Exception:
+                pass
+        return resp
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
